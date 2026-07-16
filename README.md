@@ -4,7 +4,7 @@
   <p align="center">
     Aplikasi manajemen antrian berbasis web modern untuk instansi, klinik, bank, dan layanan publik.
     <br />
-    <strong>Docker · React · Express · MySQL</strong>
+    <strong>Docker · React · Express · TypeScript</strong>
   </p>
 </div>
 
@@ -37,7 +37,7 @@ Sistem Antrian Niscaya adalah aplikasi manajemen antrian digital yang dirancang 
 |-------|-----------|
 | **Frontend** | React 19, TypeScript, Tailwind CSS v4, Vite |
 | **Backend** | Node.js, Express, TypeScript |
-| **Database** | JSON file-based storage (local), siap migrasi ke MySQL |
+| **Database** | JSON file-based storage (local) |
 | **Container** | Docker, Docker Compose, Nginx reverse-proxy |
 
 ## Screenshots
