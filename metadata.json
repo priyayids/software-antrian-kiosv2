@@ -1,0 +1,6 @@
+{
+  "name": "Software Antrian Kios",
+  "description": "A modern, highly polished queue management system featuring kiosk printing, operator controls, public display monitor, and settings management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
