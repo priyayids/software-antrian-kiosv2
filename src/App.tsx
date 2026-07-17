@@ -349,18 +349,21 @@ function KioskView({ settings, showNav, onToggleNav }: { settings: AppSettings, 
         document.body.appendChild(iframe);
       }
 
+      const paperWidthMm = settings.printer_paper_width || '80';
+      const contentWidthMm = Number(paperWidthMm) - 8;
+
       const printContent = `
         <html>
           <head>
             <title>Cetak Tiket - ${no_antrian}</title>
             <style>
               @page {
-                size: auto;
+                size: ${paperWidthMm}mm auto;
                 margin: 0mm;
               }
               @media print {
                 @page {
-                  size: auto;
+                  size: ${paperWidthMm}mm auto;
                   margin: 0mm;
                 }
                 html, body {
@@ -374,7 +377,7 @@ function KioskView({ settings, showNav, onToggleNav }: { settings: AppSettings, 
                 text-align: center; 
                 padding: 15px 10px; 
                 color: #000; 
-                width: 270px; 
+                width: ${contentWidthMm}mm; 
                 margin: 0 auto; 
                 box-sizing: border-box;
                 background-color: #fff;
@@ -482,7 +485,8 @@ function KioskView({ settings, showNav, onToggleNav }: { settings: AppSettings, 
             no_antrian,
             printer_name: settings.printer_name,
             nama_instansi: settings.nama_instansi,
-            alamat: settings.alamat
+            alamat: settings.alamat,
+            printer_paper_width: settings.printer_paper_width
           })
         });
         if (!res.ok) {
@@ -494,13 +498,16 @@ function KioskView({ settings, showNav, onToggleNav }: { settings: AppSettings, 
         setPrintError(true);
       }
     } else if (pType === 'fully_kiosk') {
+      const paperWidthMm = settings.printer_paper_width || '80';
+      const contentWidthMm = Number(paperWidthMm) - 8;
+
       const printHtml = `
         <html>
           <head>
             <title>Cetak Tiket - ${no_antrian}</title>
             <style>
               @page {
-                size: auto;
+                size: ${paperWidthMm}mm auto;
                 margin: 0mm;
               }
               body { 
@@ -508,7 +515,7 @@ function KioskView({ settings, showNav, onToggleNav }: { settings: AppSettings, 
                 text-align: center; 
                 padding: 10px 5px; 
                 color: #000; 
-                width: 270px; 
+                width: ${contentWidthMm}mm; 
                 margin: 0 auto; 
                 box-sizing: border-box;
                 background-color: #fff;
@@ -1747,11 +1754,13 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
   // Printer configuration state
   const [printerType, setPrinterType] = useState<'browser' | 'fully_kiosk' | 'windows_local'>(settings.printer_type || 'browser');
   const [printerName, setPrinterName] = useState<string>(settings.printer_name || '');
+  const [printerPaperWidth, setPrinterPaperWidth] = useState<'58' | '80'>(settings.printer_paper_width || '80');
 
   // Synchronize state when settings object changes (e.g. from server)
   useEffect(() => {
     setPrinterType(settings.printer_type || 'browser');
     setPrinterName(settings.printer_name || '');
+    setPrinterPaperWidth(settings.printer_paper_width || '80');
     setHeroImage(settings.hero_image || '');
     setHeroOpacity(settings.hero_opacity ?? 0.2);
   }, [settings]);
@@ -1863,6 +1872,7 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
       warna_home_text: homeTextColor,
       printer_type: printerType,
       printer_name: printerName,
+      printer_paper_width: printerPaperWidth,
       hero_image: heroImage,
       hero_opacity: heroOpacity
     };
@@ -2039,6 +2049,18 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
                     placeholder="Kosongkan untuk printer default (opsional)"
                     disabled={printerType === 'browser'}
                   />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">Lebar Kertas Thermal</label>
+                  <select
+                    value={printerPaperWidth}
+                    onChange={(e) => setPrinterPaperWidth(e.target.value as '58' | '80')}
+                    className="bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition-colors"
+                  >
+                    <option value="58">58mm</option>
+                    <option value="80">80mm</option>
+                  </select>
                 </div>
               </div>
 

@@ -1,8 +1,8 @@
 import express, { Router, Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
-import { exec } from 'child_process';
 import { db, UPLOADS_DIR } from './db';
+import { buildEscPosTicket, printRawToWindowsPrinter } from './escpos';
 
 const router = Router();
 
@@ -225,76 +225,47 @@ router.post('/monitor/panggilan/delete', (req: Request, res: Response) => {
 });
 
 // 5. DIRECT THERMAL PRINTING API FOR LOCAL WINDOWS WITH GENERIC RAW PRINTER
-router.post('/print', (req: Request, res: Response) => {
-  const { no_antrian, printer_name, nama_instansi, alamat } = req.body;
+//
+// This sends raw ESC/POS bytes straight to the printer's RAW spool queue
+// instead of going through `Out-Printer` (GDI text printing). Out-Printer
+// renders the ticket as a page using the printer driver's current page
+// setup, and many thermal printer drivers default that page to landscape -
+// that's what was causing tickets to print rotated 90 degrees. RAW mode
+// skips page rendering entirely, so the driver's orientation setting can no
+// longer affect the output. See scripts/raw-print.ps1 for the RAW spooling.
+router.post('/print', async (req: Request, res: Response) => {
+  const { no_antrian, printer_name, nama_instansi, alamat, printer_paper_width } = req.body;
   if (!no_antrian) {
     return res.status(400).json({ success: false, message: 'Missing no_antrian' });
   }
 
   const pName = printer_name && typeof printer_name === 'string' ? printer_name.trim() : '';
-  const instansiName = nama_instansi || 'PT NISCAYA UNGGUL NUSANTARA';
-  const instansiAlamat = alamat || '';
-  
-  const todayDate = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  const todayTime = new Date().toLocaleTimeString('id-ID');
+  const paperWidth = printer_paper_width === '58' ? '58' : '80';
 
-  const printText = `
-================================
-${instansiName.toUpperCase()}
-${instansiAlamat}
-================================
-
-       NOMOR ANTRIAN ANDA
-
-             ${no_antrian}
-
-  Silakan tunggu nomor Anda dipanggil.
-  Nomor ini hanya berlaku pada hari ini.
-
---------------------------------
-Waktu: ${todayTime}
-Tanggal: ${todayDate}
---------------------------------
-          PT Niscaya
-================================
-
-
-
-
-`; // Padding lines for thermal paper feed
+  const ticketBytes = buildEscPosTicket({
+    instansi: nama_instansi || 'PT NISCAYA UNGGUL NUSANTARA',
+    alamat: alamat || '',
+    noAntrian: no_antrian,
+    tanggal: new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+    waktu: new Date().toLocaleTimeString('id-ID'),
+    paperWidthMm: paperWidth
+  });
 
   if (process.platform === 'win32') {
-    const tempFile = path.join(process.cwd(), `ticket_${Date.now()}_${no_antrian.replace(/[^a-zA-Z0-9]/g, '')}.txt`);
     try {
-      fs.writeFileSync(tempFile, printText, 'utf-8');
-      
-      const cmd = pName
-        ? `powershell -Command "Get-Content -LiteralPath '${tempFile}' | Out-Printer -Name '${pName.replace(/'/g, "''")}'"`
-        : `powershell -Command "Get-Content -LiteralPath '${tempFile}' | Out-Printer"`;
-      
-      exec(cmd, (error, stdout, stderr) => {
-        try {
-          fs.unlinkSync(tempFile);
-        } catch (e) {}
-        
-        if (error) {
-          console.error('[PRINT] Windows printing failed:', error, stderr);
-          return res.status(500).json({ success: false, message: 'Gagal mencetak tiket ke printer lokal', error: stderr });
-        }
-        
-        return res.json({ success: true, message: 'Berhasil mencetak tiket lewat printer lokal Windows!' });
-      });
+      await printRawToWindowsPrinter(ticketBytes, pName);
+      return res.json({ success: true, message: 'Berhasil mencetak tiket lewat printer lokal Windows!' });
     } catch (e: any) {
-      console.error('[PRINT] Write file error:', e);
-      return res.status(500).json({ success: false, message: 'Gagal menyiapkan data cetak', error: e.message });
+      console.error('[PRINT] Windows raw printing failed:', e);
+      return res.status(500).json({ success: false, message: 'Gagal mencetak tiket ke printer lokal', error: e.message });
     }
   } else {
     // Non-windows fallback / log (e.g. Cloud Run, macOS, Linux container)
-    console.log(`[PRINT SIMULATION] Platform is not Windows (${process.platform}). Raw print text:`, printText);
-    return res.json({ 
-      success: true, 
-      simulated: true, 
-      message: 'Simulasi cetak berhasil (Bukan OS Windows, pencetakan di-bypass).' 
+    console.log(`[PRINT SIMULATION] Platform is not Windows (${process.platform}). Ticket bytes:`, ticketBytes.length);
+    return res.json({
+      success: true,
+      simulated: true,
+      message: 'Simulasi cetak berhasil (Bukan OS Windows, pencetakan di-bypass).'
     });
   }
 });

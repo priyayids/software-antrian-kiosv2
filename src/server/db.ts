@@ -34,7 +34,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   warna_background: '#f1f5f9',
   warna_text: '#ffffff',
   warna_home_bg: '#f8fafc',
-  warna_home_text: '#0f172a'
+  warna_home_text: '#0f172a',
+  printer_paper_width: '80'
 };
 
 interface DatabaseSchema {

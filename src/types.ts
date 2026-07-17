@@ -21,6 +21,7 @@ export interface AppSettings {
   warna_home_text?: string;
   printer_type?: 'browser' | 'fully_kiosk' | 'windows_local';
   printer_name?: string;
+  printer_paper_width?: '58' | '80';
   hero_image?: string;
   hero_opacity?: number;
 }
