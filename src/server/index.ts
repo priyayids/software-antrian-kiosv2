@@ -1,10 +1,16 @@
 import express, { Router, Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
+import { EventEmitter } from 'events';
 import { db, UPLOADS_DIR } from './db';
 import { buildEscPosTicket, printRawToWindowsPrinter } from './escpos';
 
 const router = Router();
+const sseEmitter = new EventEmitter();
+
+function notifySSEClients() {
+  sseEmitter.emit('update');
+}
 
 // Helper to get today's date in YYYY-MM-DD format (Asia/Jakarta or local)
 function getTodayString(): string {
@@ -14,6 +20,33 @@ function getTodayString(): string {
   const localDate = new Date(d.getTime() - (offset * 60 * 1000));
   return localDate.toISOString().split('T')[0];
 }
+
+// SSE endpoint for real-time push updates
+router.get('/sse/updates', (req: Request, res: Response) => {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+
+  const sendUpdate = () => {
+    const today = getTodayString();
+    const stats = {
+      total: db.getCount(today),
+      sekarang: db.getCurrentServing(today) || '-',
+      selanjutnya: db.getNextQueue(today) || '-',
+      sisa: db.getRemainingCount(today),
+    };
+    const queues = db.getAllQueues(today);
+    const calls = db.getAllCalls();
+    res.write(`data: ${JSON.stringify({ stats, queues, calls })}\n\n`);
+  };
+
+  sendUpdate();
+  sseEmitter.on('update', sendUpdate);
+  req.on('close', () => sseEmitter.off('update', sendUpdate));
+});
 
 // 1. SETTINGS API
 router.get('/settings', (req: Request, res: Response) => {
@@ -92,6 +125,7 @@ router.post('/nomor/insert', (req: Request, res: Response) => {
     const today = getTodayString();
     const item = db.createQueue(today);
     
+    notifySSEClients();
     res.json({
       success: true,
       no_antrian: item.no_antrian,
@@ -148,6 +182,7 @@ router.post('/panggilan/createPanggilan', (req: Request, res: Response) => {
 
   try {
     db.createCall(antrian, loket);
+    notifySSEClients();
     res.json({
       success: true,
       message: `Success create untuk panggilan ${antrian}`
@@ -167,6 +202,7 @@ router.post('/panggilan/update', (req: Request, res: Response) => {
   try {
     const success = db.markAsServed(id);
     if (success) {
+      notifySSEClients();
       res.json({ success: true });
     } else {
       res.status(404).json({ success: false, error: 'Queue item not found' });
@@ -182,6 +218,7 @@ router.post('/panggilan/resetDaily', (req: Request, res: Response) => {
     const today = getTodayString();
     db.resetDaily(today);
     db.resetCalls();
+    notifySSEClients();
     res.json({ success: true, message: 'Antrian berhasil di-reset untuk hari ini.' });
   } catch (e: any) {
     res.status(500).json({ success: false, message: e.message });
@@ -215,6 +252,7 @@ router.post('/monitor/panggilan/delete', (req: Request, res: Response) => {
   try {
     const success = db.deleteCall(id);
     if (success) {
+      notifySSEClients();
       res.json({ success: true, message: `Delete Success on id ${id}` });
     } else {
       res.status(404).json({ success: false, message: 'Call not found' });

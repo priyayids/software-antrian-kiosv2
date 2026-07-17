@@ -867,44 +867,19 @@ function CounterView({ settings }: { settings: AppSettings }) {
   const [resetConfirmOpen, setResetConfirmOpen] = useState<boolean>(false);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
 
-  const fetchQueues = async () => {
-    try {
-      // 1. Fetch Today's Queues
-      const resList = await fetch('/api/panggilan/getAntrian');
-      if (resList.ok) {
-        const json = await resList.json();
-        // PHP returns data inside data key
-        const list = Array.isArray(json.data) ? json.data : [];
-        setQueues(list.filter(q => q.id !== '')); // Remove the fake placeholder
-      }
-
-      // 2. Fetch Stats
-      const resSekarang = await fetch('/api/panggilan/getAntrianSekarang');
-      const resSelanjutnya = await fetch('/api/panggilan/getAntrianSelanjutnya');
-      const resJumlah = await fetch('/api/panggilan/getJumlahAntrian');
-      const resSisa = await fetch('/api/panggilan/getSisaAntrian');
-
-      const sekarangVal = resSekarang.ok ? await resSekarang.text() : '-';
-      const selanjutnyaVal = resSelanjutnya.ok ? await resSelanjutnya.text() : '-';
-      const jumlahVal = resJumlah.ok ? await resJumlah.text() : '0';
-      const sisaVal = resSisa.ok ? await resSisa.text() : '0';
-
-      setStats({
-        total: parseInt(jumlahVal, 10) || 0,
-        sekarang: sekarangVal || '-',
-        selanjutnya: selanjutnyaVal || '-',
-        sisa: parseInt(sisaVal, 10) || 0
-      });
-
-    } catch (e) {
-      console.error('Error polling counter state:', e);
-    }
-  };
-
   useEffect(() => {
-    fetchQueues();
-    const interval = setInterval(fetchQueues, 2500);
-    return () => clearInterval(interval);
+    const source = new EventSource('/api/sse/updates');
+    source.onmessage = (e) => {
+      try {
+        const d = JSON.parse(e.data);
+        setStats(d.stats);
+        const list = Array.isArray(d.queues) ? d.queues : [];
+        setQueues(list.filter((q: any) => q.id !== ''));
+      } catch (err) {
+        console.error('SSE parse error:', err);
+      }
+    };
+    return () => source.close();
   }, []);
 
   const handleCall = async (noAntrian: string, queueId?: number) => {
@@ -927,8 +902,6 @@ function CounterView({ settings }: { settings: AppSettings }) {
           body: JSON.stringify({ id: queueId })
         });
       }
-
-      fetchQueues();
     } catch (e) {
       console.error(e);
     } finally {
@@ -955,7 +928,6 @@ function CounterView({ settings }: { settings: AppSettings }) {
       const res = await fetch('/api/panggilan/resetDaily', { method: 'POST' });
       if (res.ok) {
         setResetConfirmOpen(false);
-        fetchQueues();
       }
     } catch (e) {
       console.error(e);
@@ -1236,7 +1208,6 @@ function CounterView({ settings }: { settings: AppSettings }) {
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({ id: q.id })
                             });
-                            fetchQueues();
                             setActionLoading(false);
                           }}
                           disabled={actionLoading}
@@ -1307,10 +1278,12 @@ function MonitorView({ settings }: { settings: AppSettings }) {
   const [timeStr, setTimeStr] = useState<string>('');
   const [isPlayingVoice, setIsPlayingVoice] = useState<boolean>(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const audioUnlockedRef = useRef<boolean>(false);
   const queuePanggilRef = useRef<PanggilanItem[]>([]);
   const isPlayLoopRef = useRef<boolean>(false);
   const wasPlayingRef = useRef<boolean>(false);
+  const speechPermittedRef = useRef(false);
+  const [speechPermitted, setSpeechPermitted] = useState(false);
+  const [speechInitError, setSpeechInitError] = useState(false);
 
   // Time ticker
   useEffect(() => {
@@ -1326,73 +1299,38 @@ function MonitorView({ settings }: { settings: AppSettings }) {
     return () => clearInterval(interval);
   }, []);
 
-  // Poll Monitor State
-  const pollMonitorState = async () => {
-    try {
-      // 1. Fetch Stats
-      const resSekarang = await fetch('/api/panggilan/getAntrianSekarang');
-      const resSelanjutnya = await fetch('/api/panggilan/getAntrianSelanjutnya');
-      const resJumlah = await fetch('/api/panggilan/getJumlahAntrian');
-      const resSisa = await fetch('/api/panggilan/getSisaAntrian');
-
-      const sekarangVal = resSekarang.ok ? await resSekarang.text() : '-';
-      const selanjutnyaVal = resSelanjutnya.ok ? await resSelanjutnya.text() : '-';
-      const jumlahVal = resJumlah.ok ? await resJumlah.text() : '0';
-      const sisaVal = resSisa.ok ? await resSisa.text() : '0';
-
-      setStats({
-        total: parseInt(jumlahVal, 10) || 0,
-        sekarang: sekarangVal || '-',
-        selanjutnya: selanjutnyaVal || '-',
-        sisa: parseInt(sisaVal, 10) || 0
-      });
-
-      // Update serving number view (if we aren't currently speaking a new call, fallback to what's in DB)
-      if (!isPlayLoopRef.current) {
-        setServingNum(sekarangVal || '-');
-      }
-
-      // 2. Fetch all queue items to retrieve waiting list (status === '0')
-      const resList = await fetch('/api/panggilan/getAntrian');
-      if (resList.ok) {
-        const json = await resList.json();
-        const list = Array.isArray(json.data) ? json.data : [];
-        // Only get actual items that are currently waiting
-        setWaitingQueues(list.filter((q: QueueItem) => q.status === '0' && q.id !== undefined));
-      }
-
-      // 3. Poll Call Events (Panggilan)
-      const resCalls = await fetch('/api/monitor/panggilan');
-      if (resCalls.ok) {
-        const json = await resCalls.json();
-        if (json.success && json.data.length > 0) {
-          json.data.forEach((element: PanggilanItem) => {
-            // Avoid duplicates in our queue loop
-            const exists = queuePanggilRef.current.some(c => c.id === element.id);
-            if (!exists) {
-              queuePanggilRef.current.push(element);
-            }
-          });
-
-          // Run speaker loop if inactive
-          if (queuePanggilRef.current.length > 0 && !isPlayLoopRef.current) {
-            triggerCallingLoop();
-          }
-        }
-      }
-    } catch (e) {
-      console.error('Error polling monitor data:', e);
-    }
-  };
-
+  // SSE real-time updates
   useEffect(() => {
-    pollMonitorState();
-    const interval = setInterval(pollMonitorState, 2000);
-    return () => clearInterval(interval);
+    const source = new EventSource('/api/sse/updates');
+    source.onmessage = (e) => {
+      try {
+        const d = JSON.parse(e.data);
+        setStats(d.stats);
+        const list = Array.isArray(d.queues) ? d.queues : [];
+        setWaitingQueues(list.filter((q: QueueItem) => q.status === '0' && q.id !== undefined));
+        if (!isPlayLoopRef.current) {
+          setServingNum(d.stats.sekarang || '-');
+        }
+        const calls = Array.isArray(d.calls) ? d.calls : [];
+        calls.forEach((element: PanggilanItem) => {
+          const exists = queuePanggilRef.current.some(c => c.id === element.id);
+          if (!exists) {
+            queuePanggilRef.current.push(element);
+          }
+        });
+        if (queuePanggilRef.current.length > 0 && !isPlayLoopRef.current) {
+          triggerCallingLoop();
+        }
+      } catch (err) {
+        console.error('SSE parse error:', err);
+      }
+    };
+    return () => source.close();
   }, []);
 
   const triggerCallingLoop = () => {
     if (queuePanggilRef.current.length === 0 || isPlayLoopRef.current) return;
+    if (!speechPermittedRef.current) return;
     
     isPlayLoopRef.current = true;
     setIsPlayingVoice(true);
@@ -1432,8 +1370,6 @@ function MonitorView({ settings }: { settings: AppSettings }) {
               playYouTube();
               if (queuePanggilRef.current.length > 0) {
                 triggerCallingLoop();
-              } else {
-                pollMonitorState();
               }
             }
           }
@@ -1447,8 +1383,6 @@ function MonitorView({ settings }: { settings: AppSettings }) {
         playYouTube();
         if (queuePanggilRef.current.length > 0) {
           triggerCallingLoop();
-        } else {
-          pollMonitorState();
         }
       }
     }, durasi_bell);
@@ -1483,27 +1417,42 @@ function MonitorView({ settings }: { settings: AppSettings }) {
     }
   };
 
-  const unlockAudio = () => {
-    if (audioUnlockedRef.current) return;
-    audioUnlockedRef.current = true;
+  const initSpeech = () => {
     if (!audioCtxRef.current) {
       audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
     if (audioCtxRef.current.state === 'suspended') {
       audioCtxRef.current.resume().catch(() => {});
     }
-    document.removeEventListener('click', unlockAudio);
-    document.removeEventListener('touchstart', unlockAudio);
+    speechSynthesis.cancel();
+    const dummy = new SpeechSynthesisUtterance(' ');
+    speechSynthesis.speak(dummy);
+    if (typeof responsiveVoice !== 'undefined') {
+      responsiveVoice.speak('Sistem suara siap', 'Indonesian Female', {
+        rate: 0.9,
+        pitch: 1,
+        volume: 0,
+        onend: () => {
+          speechPermittedRef.current = true;
+          setSpeechPermitted(true);
+        },
+        onerror: () => {
+          setSpeechInitError(true);
+          speechPermittedRef.current = true;
+          setSpeechPermitted(true);
+        }
+      });
+    } else {
+      console.warn('responsiveVoice not loaded');
+      speechPermittedRef.current = true;
+      setSpeechPermitted(true);
+    }
   };
 
   useEffect(() => {
-    unlockAudio();
-    document.addEventListener('click', unlockAudio);
-    document.addEventListener('touchstart', unlockAudio);
-    return () => {
-      document.removeEventListener('click', unlockAudio);
-      document.removeEventListener('touchstart', unlockAudio);
-    };
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
   }, []);
 
   const logoUrl = settings.logo ? `/api/uploads/${settings.logo}` : '/favicon.png';
@@ -1722,6 +1671,30 @@ function MonitorView({ settings }: { settings: AppSettings }) {
           copyright &copy; {new Date().getFullYear()} PT Niscaya. Monitor Display Panel.
         </div>
       </footer>
+
+      {/* Speech permission overlay */}
+      {!speechPermitted && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center"
+          style={{ backgroundColor: 'rgba(0,0,0,0.75)' }}>
+          <div className="bg-white rounded-3xl p-10 max-w-md w-full mx-6 text-center shadow-2xl border border-slate-200">
+            <Volume2 className="w-16 h-16 mx-auto mb-4" style={{ color: settings.warna_accent || '#2563eb' }} />
+            <h2 className="text-2xl font-black text-slate-900 mb-2">Aktifkan Suara Monitor</h2>
+            <p className="text-sm text-slate-500 mb-8 leading-relaxed">
+              Klik tombol di bawah untuk mengaktifkan pengumuman suara otomatis nomor antrian.
+            </p>
+            <button
+              onClick={initSpeech}
+              className="w-full py-4 px-6 rounded-2xl text-white font-bold text-lg transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+              style={{ backgroundColor: settings.warna_accent || '#2563eb' }}
+            >
+              Aktifkan Suara
+            </button>
+            {speechInitError && (
+              <p className="text-xs text-amber-600 mt-3">Inisialisasi suara gagal. Monitor tetap berjalan tanpa suara.</p>
+            )}
+          </div>
+        </div>
+      )}
 
       <audio id="tingtung" src="/assets/audio/tingtung.mp3" preload="metadata" />
     </div>
