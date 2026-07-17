@@ -20,7 +20,8 @@ import {
   Pause,
   ExternalLink,
   ChevronRight,
-  Info
+  Info,
+  Usb
 } from 'lucide-react';
 import { AppSettings, QueueItem, PanggilanItem, QueueStats } from './types';
 
@@ -332,6 +333,115 @@ function KioskView({ settings, showNav, onToggleNav }: { settings: AppSettings, 
   const [showReceipt, setShowReceipt] = useState<boolean>(false);
   const [printError, setPrintError] = useState<boolean>(false);
   const logoUrl = settings.logo ? `/api/uploads/${settings.logo}` : '/favicon.png';
+  const webusbDeviceRef = useRef<USBDevice | null>(null);
+  const [webusbConnected, setWebusbConnected] = useState(false);
+
+  const wrapText = (text: string, width: number): string[] => {
+    const words = text.split(' ');
+    const lines: string[] = [];
+    let current = '';
+    for (const word of words) {
+      const next = current ? `${current} ${word}` : word;
+      if (next.length > width) {
+        if (current) lines.push(current);
+        current = word;
+      } else {
+        current = next;
+      }
+    }
+    if (current) lines.push(current);
+    return lines;
+  };
+
+  const buildEscPosTicketBrowser = (data: {
+    instansi: string;
+    alamat: string;
+    noAntrian: string;
+    tanggal: string;
+    waktu: string;
+    paperWidthMm: '58' | '80';
+  }): Uint8Array => {
+    const width = data.paperWidthMm === '58' ? 32 : 48;
+    const parts: Uint8Array[] = [];
+
+    const push = (...bytes: number[]) => parts.push(new Uint8Array(bytes));
+    const pushText = (text: string) => {
+      parts.push(new TextEncoder().encode(text + '\n'));
+    };
+
+    push(0x1b, 0x40);
+    push(0x1b, 0x61, 0x01);
+    push(0x1b, 0x45, 0x01);
+    for (const l of wrapText(data.instansi.toUpperCase(), width)) pushText(l);
+    push(0x1b, 0x45, 0x00);
+    for (const l of wrapText(data.alamat, width)) pushText(l);
+    pushText('-'.repeat(width));
+    pushText('NOMOR ANTRIAN ANDA');
+    pushText('');
+    push(0x1b, 0x45, 0x01);
+    push(0x1d, 0x21, 0x22);
+    pushText(data.noAntrian);
+    push(0x1d, 0x21, 0x00);
+    push(0x1b, 0x45, 0x00);
+    pushText('');
+    for (const l of wrapText('Silakan menunggu hingga nomor antrian Anda dipanggil.', width)) pushText(l);
+    for (const l of wrapText('Nomor ini hanya berlaku pada hari ini.', width)) pushText(l);
+    pushText('-'.repeat(width));
+    pushText(data.tanggal);
+    pushText(`Pukul: ${data.waktu}`);
+    push(0x1b, 0x45, 0x01);
+    pushText('TERIMA KASIH');
+    push(0x1b, 0x45, 0x00);
+    push(0x1b, 0x61, 0x00);
+    pushText('');
+    pushText('');
+    pushText('');
+    push(0x1d, 0x56, 0x01);
+
+    let totalLen = 0;
+    for (const p of parts) totalLen += p.length;
+    const result = new Uint8Array(totalLen);
+    let offset = 0;
+    for (const p of parts) { result.set(p, offset); offset += p.length; }
+    return result;
+  };
+
+  const connectWebUsb = async () => {
+    try {
+      const device = await navigator.usb.requestDevice({ filters: [] });
+      await device.open();
+      await device.selectConfiguration(1);
+      await device.claimInterface(0);
+      webusbDeviceRef.current = device;
+      setWebusbConnected(true);
+    } catch (e) {
+      console.error('WebUSB connect failed:', e);
+    }
+  };
+
+  const triggerWebUsbPrint = async (no_antrian: string) => {
+    const device = webusbDeviceRef.current;
+    if (!device) return;
+    try {
+      const paperWidthMm = settings.printer_paper_width || '80';
+      const ticketBytes = buildEscPosTicketBrowser({
+        instansi: settings.nama_instansi,
+        alamat: settings.alamat,
+        noAntrian: no_antrian,
+        tanggal: new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+        waktu: new Date().toLocaleTimeString('id-ID'),
+        paperWidthMm: paperWidthMm as '58' | '80'
+      });
+      const iface = device.configuration?.interfaces?.[0];
+      const endpoint = iface?.alternate?.endpoints?.find(e => e.direction === 'out');
+      if (endpoint) {
+        await device.transferOut(endpoint.endpointNumber, ticketBytes);
+      }
+    } catch (e) {
+      console.error('WebUSB print failed:', e);
+      setPrintError(true);
+    }
+  };
 
   const triggerBrowserPrint = (no_antrian: string) => {
     try {
@@ -601,6 +711,8 @@ function KioskView({ settings, showNav, onToggleNav }: { settings: AppSettings, 
         console.error('Error printing fully_kiosk:', err);
         setPrintError(true);
       }
+    } else if (pType === 'webusb') {
+      await triggerWebUsbPrint(no_antrian);
     } else {
       triggerBrowserPrint(no_antrian);
     }
@@ -748,6 +860,26 @@ function KioskView({ settings, showNav, onToggleNav }: { settings: AppSettings, 
               </>
             )}
           </button>
+
+          {/* WebUSB connection status */}
+          {(settings.printer_type === 'webusb') && (
+            <div className="w-full max-w-md">
+              {!webusbConnected ? (
+                <button
+                  onClick={connectWebUsb}
+                  className="w-full py-3 px-4 rounded-xl border-2 border-dashed border-slate-300 text-slate-500 font-bold text-xs hover:border-blue-400 hover:text-blue-600 transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <Usb className="w-4 h-4" />
+                  <span>Hubungkan Printer USB</span>
+                </button>
+              ) : (
+                <div className="w-full py-2 px-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-xs flex items-center justify-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Printer USB Terhubung</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </main>
 
@@ -1725,7 +1857,7 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
   const [homeTextColor, setHomeTextColor] = useState<string>(settings.warna_home_text || '#0f172a');
   
   // Printer configuration state
-  const [printerType, setPrinterType] = useState<'browser' | 'fully_kiosk' | 'windows_local'>(settings.printer_type || 'browser');
+  const [printerType, setPrinterType] = useState<'browser' | 'fully_kiosk' | 'windows_local' | 'webusb'>(settings.printer_type || 'browser');
   const [printerName, setPrinterName] = useState<string>(settings.printer_name || '');
   const [printerPaperWidth, setPrinterPaperWidth] = useState<'58' | '80'>(settings.printer_paper_width || '80');
 
@@ -2008,6 +2140,7 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
                     <option value="browser">Dialog Cetak Browser (window.print)</option>
                     <option value="windows_local">Windows Local Direct (Mencetak otomatis via Server Lokal)</option>
                     <option value="fully_kiosk">Fully Kiosk Browser (Mencetak otomatis di Android Kiosk)</option>
+                    <option value="webusb">USB Direct Android (WebUSB - Cetak langsung tanpa watermark)</option>
                   </select>
                 </div>
 
@@ -2047,6 +2180,9 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
                 )}
                 {printerType === 'fully_kiosk' && (
                   <span><strong>Info Android:</strong> Gunakan opsi ini jika aplikasi dijalankan di tablet Android via peramban Fully Kiosk Browser yang terhubung dengan printer thermal (Bluetooth/USB). Memanfaatkan fungsi otomatis <code>fully.printHtml()</code>.</span>
+                )}
+                {printerType === 'webusb' && (
+                  <span><strong>Info USB Direct Android:</strong> Menggunakan WebUSB untuk mengirim data ESC/POS langsung ke printer thermal melalui koneksi USB. Tidak ada watermark, tidak ada dialog cetak. Pastikan printer terhubung via USB OTG dan browser Chrome/Chromium di Android. Klik "Hubungkan Printer USB" di layar Kios untuk memulai.</span>
                 )}
               </div>
             </div>

@@ -12,3 +12,43 @@ interface ResponsiveVoice {
 }
 
 declare var responsiveVoice: ResponsiveVoice;
+
+interface USBEndpoint {
+  endpointNumber: number;
+  direction: 'in' | 'out';
+  type: string;
+  packetSize: number;
+}
+
+interface USBAlternateInterface {
+  endpoints: USBEndpoint[];
+}
+
+interface USBInterface {
+  alternate: USBAlternateInterface;
+}
+
+interface USBConfiguration {
+  interfaces: USBInterface[];
+}
+
+interface USBOutTransferResult {
+  bytesWritten: number;
+  status: string;
+}
+
+interface USBDevice {
+  configuration?: USBConfiguration;
+  open(): Promise<void>;
+  close(): Promise<void>;
+  selectConfiguration(configNum: number): Promise<void>;
+  claimInterface(ifaceNum: number): Promise<void>;
+  transferOut(endpointNumber: number, data: BufferSource): Promise<USBOutTransferResult>;
+}
+
+interface Navigator {
+  usb: {
+    requestDevice(options: { filters: Array<Record<string, unknown>> }): Promise<USBDevice>;
+    getDevices(): Promise<USBDevice[]>;
+  };
+}
