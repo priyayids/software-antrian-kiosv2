@@ -242,7 +242,6 @@ function HomeView({ settings, onNavigate }: { settings: AppSettings, onNavigate:
             onClick={() => onNavigate('kiosk')}
             className="group relative bg-white/90 hover:bg-white border border-slate-200/80 hover:border-emerald-500/50 p-6 rounded-2xl shadow-md hover:shadow-xl text-left transition-all duration-300 hover:-translate-y-1 overflow-hidden"
           >
-            <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-bl-full group-hover:bg-emerald-500/10 transition-colors" />
             <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl inline-block mb-4 border border-emerald-100">
               <Printer className="w-6 h-6" />
             </div>
@@ -261,7 +260,6 @@ function HomeView({ settings, onNavigate }: { settings: AppSettings, onNavigate:
             onClick={() => onNavigate('counter')}
             className="group relative bg-white/90 hover:bg-white border border-slate-200/80 hover:border-amber-500/50 p-6 rounded-2xl shadow-md hover:shadow-xl text-left transition-all duration-300 hover:-translate-y-1 overflow-hidden"
           >
-            <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-bl-full group-hover:bg-amber-500/10 transition-colors" />
             <div className="p-3 bg-amber-50 text-amber-600 rounded-xl inline-block mb-4 border border-amber-100">
               <UserCheck className="w-6 h-6" />
             </div>
@@ -280,7 +278,6 @@ function HomeView({ settings, onNavigate }: { settings: AppSettings, onNavigate:
             onClick={() => onNavigate('monitor')}
             className="group relative bg-white/90 hover:bg-white border border-slate-200/80 hover:border-indigo-500/50 p-6 rounded-2xl shadow-md hover:shadow-xl text-left transition-all duration-300 hover:-translate-y-1 overflow-hidden"
           >
-            <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-bl-full group-hover:bg-indigo-500/10 transition-colors" />
             <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl inline-block mb-4 border border-indigo-100">
               <Tv className="w-6 h-6" />
             </div>
@@ -299,7 +296,6 @@ function HomeView({ settings, onNavigate }: { settings: AppSettings, onNavigate:
             onClick={() => onNavigate('settings')}
             className="group relative bg-white/90 hover:bg-white border border-slate-200/80 hover:border-pink-500/50 p-6 rounded-2xl shadow-md hover:shadow-xl text-left transition-all duration-300 hover:-translate-y-1 overflow-hidden"
           >
-            <div className="absolute top-0 right-0 w-24 h-24 bg-pink-500/5 rounded-bl-full group-hover:bg-pink-500/10 transition-colors" />
             <div className="p-3 bg-pink-50 text-pink-600 rounded-xl inline-block mb-4 border border-pink-100">
               <Settings className="w-6 h-6" />
             </div>
