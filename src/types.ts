@@ -40,6 +40,7 @@ export interface PanggilanItem {
   antrian: string;
   loket: string;
   deleted: number; // 0 or 1
+  created_at?: number; // epoch ms
 }
 
 export interface QueueStats {

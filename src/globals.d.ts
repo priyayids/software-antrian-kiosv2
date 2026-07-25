@@ -38,6 +38,10 @@ interface USBOutTransferResult {
 }
 
 interface USBDevice {
+  vendorId: number;
+  productId: number;
+  productName?: string;
+  opened: boolean;
   configuration?: USBConfiguration;
   open(): Promise<void>;
   close(): Promise<void>;

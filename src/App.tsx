@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import { AppSettings, QueueItem, PanggilanItem, QueueStats } from './types';
 
+const FOOTER_COPYRIGHT = '© 2026 Niscaya. All rights reserved.';
+
 export default function App() {
   const [view, setView] = useState<'home' | 'kiosk' | 'counter' | 'monitor' | 'settings'>('home');
   const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -311,9 +313,8 @@ function HomeView({ settings, onNavigate }: { settings: AppSettings, onNavigate:
         </div>
       </div>
 
-      {/* Footer */}
       <div className="text-center text-xs opacity-60 mt-8 font-medium relative z-10">
-        &copy; {new Date().getFullYear()} PT Niscaya.
+        {FOOTER_COPYRIGHT}
       </div>
     </div>
   );
@@ -330,7 +331,6 @@ function KioskView({ settings, showNav, onToggleNav }: { settings: AppSettings, 
   const [printError, setPrintError] = useState<boolean>(false);
   const logoUrl = settings.logo ? `/api/uploads/${settings.logo}` : '/favicon.png';
   const webusbDeviceRef = useRef<USBDevice | null>(null);
-  const [webusbConnected, setWebusbConnected] = useState(false);
 
   const wrapText = (text: string, width: number): string[] => {
     const words = text.split(' ');
@@ -402,22 +402,34 @@ function KioskView({ settings, showNav, onToggleNav }: { settings: AppSettings, 
     return result;
   };
 
-  const connectWebUsb = async () => {
+  const getWebUsbDevice = async (): Promise<USBDevice | null> => {
+    const saved = localStorage.getItem('webusb_pairing');
+    if (!saved) return null;
+    let pair: { vendorId: number; productId: number };
+    try { pair = JSON.parse(saved); } catch { return null; }
     try {
-      const device = await navigator.usb.requestDevice({ filters: [] });
-      await device.open();
-      await device.selectConfiguration(1);
-      await device.claimInterface(0);
-      webusbDeviceRef.current = device;
-      setWebusbConnected(true);
-    } catch (e) {
-      console.error('WebUSB connect failed:', e);
-    }
+      const devices = await navigator.usb.getDevices();
+      const match = devices.find(d => d.vendorId === pair.vendorId && d.productId === pair.productId);
+      if (!match) return null;
+      if (!match.opened) {
+        await match.open();
+        await match.selectConfiguration(1);
+        await match.claimInterface(0);
+      }
+      return match;
+    } catch { return null; }
   };
 
+  useEffect(() => {
+    if (settings.printer_type === 'webusb') {
+      getWebUsbDevice().then(d => { webusbDeviceRef.current = d; });
+    }
+  }, [settings.printer_type]);
+
   const triggerWebUsbPrint = async (no_antrian: string) => {
-    const device = webusbDeviceRef.current;
-    if (!device) return;
+    const device = webusbDeviceRef.current || await getWebUsbDevice();
+    if (!device) { setPrintError(true); return; }
+    webusbDeviceRef.current = device;
     try {
       const paperWidthMm = settings.printer_paper_width || '80';
       const ticketBytes = buildEscPosTicketBrowser({
@@ -763,6 +775,20 @@ function KioskView({ settings, showNav, onToggleNav }: { settings: AppSettings, 
     }
   };
 
+  const autoCloseTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (showReceipt) {
+      autoCloseTimerRef.current = window.setTimeout(() => setShowReceipt(false), 5000);
+    }
+    return () => {
+      if (autoCloseTimerRef.current !== null) {
+        window.clearTimeout(autoCloseTimerRef.current);
+        autoCloseTimerRef.current = null;
+      }
+    };
+  }, [showReceipt]);
+
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col justify-between relative overflow-hidden" style={{ backgroundColor: '#f3f4f6' }}>
       {/* Optional Background Hero Image */}
@@ -857,25 +883,6 @@ function KioskView({ settings, showNav, onToggleNav }: { settings: AppSettings, 
             )}
           </button>
 
-          {/* WebUSB connection status */}
-          {(settings.printer_type === 'webusb') && (
-            <div className="w-full max-w-md">
-              {!webusbConnected ? (
-                <button
-                  onClick={connectWebUsb}
-                  className="w-full py-3 px-4 rounded-xl border-2 border-dashed border-slate-300 text-slate-500 font-bold text-xs hover:border-blue-400 hover:text-blue-600 transition-all cursor-pointer flex items-center justify-center gap-2"
-                >
-                  <Usb className="w-4 h-4" />
-                  <span>Hubungkan Printer USB</span>
-                </button>
-              ) : (
-                <div className="w-full py-2 px-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-xs flex items-center justify-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Printer USB Terhubung</span>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </main>
 
@@ -967,7 +974,7 @@ function KioskView({ settings, showNav, onToggleNav }: { settings: AppSettings, 
 
       {/* Footer copyright */}
       <footer className="py-4 px-8 text-center text-xs text-slate-400 bg-slate-50 border-t border-slate-200 relative z-10">
-        &copy; {new Date().getFullYear()} PT Niscaya.
+        {FOOTER_COPYRIGHT}
         
         {/* Subtle toggle button for navigation menu to prevent customer misclicks */}
         <button
@@ -1389,7 +1396,7 @@ function CounterView({ settings }: { settings: AppSettings }) {
 
       {/* Footer info */}
       <footer className="py-4 px-8 text-center text-xs text-slate-400 bg-white border-t border-slate-200/80">
-        &copy; {new Date().getFullYear()} PT Niscaya. Operator panel v1.0.
+        {FOOTER_COPYRIGHT}
       </footer>
     </div>
   );
@@ -1440,7 +1447,12 @@ function MonitorView({ settings }: { settings: AppSettings }) {
           setServingNum(d.stats.sekarang || '-');
         }
         const calls = Array.isArray(d.calls) ? d.calls : [];
+        const now = Date.now();
         calls.forEach((element: PanggilanItem) => {
+          if (element.created_at && (now - element.created_at) > 60000) {
+            fetch('/api/monitor/panggilan/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: element.id }) }).catch(() => {});
+            return;
+          }
           const exists = queuePanggilRef.current.some(c => c.id === element.id);
           if (!exists) {
             queuePanggilRef.current.push(element);
@@ -1581,6 +1593,7 @@ function MonitorView({ settings }: { settings: AppSettings }) {
     if (!audioCtxRef.current) {
       audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
+    initSpeech();
   }, []);
 
   const logoUrl = settings.logo ? `/api/uploads/${settings.logo}` : '/favicon.png';
@@ -1796,35 +1809,89 @@ function MonitorView({ settings }: { settings: AppSettings }) {
           </marquee>
         </div>
         <div className="bg-black/40 py-1 text-center text-[10px] opacity-40">
-          copyright &copy; {new Date().getFullYear()} PT Niscaya. Monitor Display Panel.
+          {FOOTER_COPYRIGHT}
         </div>
       </footer>
 
-      {/* Speech permission overlay */}
       {!speechPermitted && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center"
-          style={{ backgroundColor: 'rgba(0,0,0,0.75)' }}>
-          <div className="bg-white rounded-3xl p-10 max-w-md w-full mx-6 text-center shadow-2xl border border-slate-200">
-            <Volume2 className="w-16 h-16 mx-auto mb-4" style={{ color: settings.warna_accent || '#2563eb' }} />
-            <h2 className="text-2xl font-black text-slate-900 mb-2">Aktifkan Suara Monitor</h2>
-            <p className="text-sm text-slate-500 mb-8 leading-relaxed">
-              Klik tombol di bawah untuk mengaktifkan pengumuman suara otomatis nomor antrian.
-            </p>
-            <button
-              onClick={initSpeech}
-              className="w-full py-4 px-6 rounded-2xl text-white font-bold text-lg transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-              style={{ backgroundColor: settings.warna_accent || '#2563eb' }}
-            >
-              Aktifkan Suara
-            </button>
-            {speechInitError && (
-              <p className="text-xs text-amber-600 mt-3">Inisialisasi suara gagal. Monitor tetap berjalan tanpa suara.</p>
-            )}
-          </div>
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-white/95 border border-slate-200 shadow-lg rounded-full px-5 py-3 text-sm">
+          <Volume2 className="w-4 h-4 text-blue-500 shrink-0" />
+          <span className="text-slate-600 text-xs">Suara monitor belum aktif</span>
+          <button onClick={initSpeech} className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1 rounded-full text-[10px] transition-colors cursor-pointer">Aktifkan</button>
         </div>
       )}
 
       <audio id="tingtung" src="/assets/audio/tingtung.mp3" preload="metadata" />
+    </div>
+  );
+}
+
+// ==========================================
+// WebUSB Pairing Component (used in SettingsView)
+// ==========================================
+function WebUsbPairing() {
+  const [webusbConnected, setWebusbConnected] = useState(false);
+  const [webusbName, setWebusbName] = useState('');
+  const devRef = useRef<USBDevice | null>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('webusb_pairing');
+    if (!saved) return;
+    try {
+      const pair = JSON.parse(saved);
+      navigator.usb.getDevices().then(devices => {
+        const match = devices.find(d => d.vendorId === pair.vendorId && d.productId === pair.productId);
+        if (match) {
+          setWebusbConnected(true);
+          setWebusbName(match.productName || `USB Device (${pair.vendorId}:${pair.productId})`);
+        }
+      }).catch(() => {});
+    } catch {}
+  }, []);
+
+  const handleConnect = async () => {
+    try {
+      const device = await navigator.usb.requestDevice({ filters: [] });
+      await device.open();
+      await device.selectConfiguration(1);
+      await device.claimInterface(0);
+      devRef.current = device;
+      localStorage.setItem('webusb_pairing', JSON.stringify({ vendorId: device.vendorId, productId: device.productId }));
+      setWebusbConnected(true);
+      setWebusbName(device.productName || `USB Device (${device.vendorId}:${device.productId})`);
+    } catch (e) {
+      console.error('WebUSB pair failed:', e);
+    }
+  };
+
+  const handleDisconnect = () => {
+    if (devRef.current) {
+      devRef.current.close().catch(() => {});
+      devRef.current = null;
+    }
+    localStorage.removeItem('webusb_pairing');
+    setWebusbConnected(false);
+    setWebusbName('');
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">Printer USB (WebUSB)</label>
+      {webusbConnected ? (
+        <div className="flex items-center gap-2 bg-slate-950 border border-emerald-700/60 rounded-xl px-3 py-2.5 text-xs text-emerald-400">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+          <span className="flex-1 truncate">{webusbName}</span>
+          <button onClick={handleDisconnect} className="text-red-400 hover:text-red-300 font-bold uppercase text-[10px] cursor-pointer shrink-0">Ganti Printer</button>
+        </div>
+      ) : (
+        <button
+          onClick={handleConnect}
+          className="bg-slate-950 border border-dashed border-slate-700 hover:border-blue-500/50 rounded-xl px-3 py-2.5 text-xs text-slate-400 hover:text-blue-400 transition-all cursor-pointer flex items-center gap-2"
+        >
+          <Usb className="w-4 h-4" />
+          <span>Hubungkan Printer USB</span>
+        </button>
+      )}
     </div>
   );
 }
@@ -2140,6 +2207,8 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
                   </select>
                 </div>
 
+                {printerType === 'webusb' && <WebUsbPairing />}
+
                 {/* Nama Printer / Lokasi */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">Nama / Driver Printer</label>
@@ -2178,7 +2247,7 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
                   <span><strong>Info Android:</strong> Gunakan opsi ini jika aplikasi dijalankan di tablet Android via peramban Fully Kiosk Browser yang terhubung dengan printer thermal (Bluetooth/USB). Memanfaatkan fungsi otomatis <code>fully.printHtml()</code>.</span>
                 )}
                 {printerType === 'webusb' && (
-                  <span><strong>Info USB Direct Android:</strong> Menggunakan WebUSB untuk mengirim data ESC/POS langsung ke printer thermal melalui koneksi USB. Tidak ada watermark, tidak ada dialog cetak. Pastikan printer terhubung via USB OTG dan browser Chrome/Chromium di Android. Klik "Hubungkan Printer USB" di layar Kios untuk memulai.</span>
+                  <span><strong>Info USB Direct:</strong> Menggunakan WebUSB untuk mengirim data ESC/POS langsung ke printer thermal. Pasangkan printer USB di atas, lalu buka layar Kios — printer akan terhubung otomatis.</span>
                 )}
               </div>
             </div>
@@ -2629,7 +2698,7 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
 
       {/* Footer info */}
       <footer className="py-4 px-8 text-center text-xs text-slate-500 bg-slate-950 border-t border-slate-800/60 mt-12">
-        &copy; {new Date().getFullYear()} PT Niscaya. Pengaturan Sistem.
+        {FOOTER_COPYRIGHT}
       </footer>
     </div>
   );

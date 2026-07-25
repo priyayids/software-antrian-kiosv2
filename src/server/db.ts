@@ -217,7 +217,8 @@ class LocalDatabase {
       id: this.data.nextCallId++,
       antrian,
       loket,
-      deleted: 0
+      deleted: 0,
+      created_at: Date.now()
     };
     this.data.calls.push(newItem);
     this.persist();
