@@ -903,7 +903,9 @@ function KioskView({ settings, showNav, onToggleNav }: { settings: AppSettings, 
                 <div>
                   <h4 className="text-xs font-bold text-red-800">Pencetakan Gagal</h4>
                   <p className="text-[10px] text-red-600 mt-0.5 leading-relaxed">
-                    Browser memblokir jendela popup cetak. Harap izinkan popup di peramban Anda untuk mencetak tiket secara langsung.
+                    {settings.printer_type === 'webusb'
+                      ? 'Printer USB tidak terhubung. Hubungkan printer di halaman Pengaturan.'
+                      : 'Browser memblokir jendela popup cetak. Harap izinkan popup di peramban Anda untuk mencetak tiket secara langsung.'}
                   </p>
                   <button
                     onClick={() => triggerPrint(lastPrinted)}
@@ -1578,8 +1580,6 @@ function MonitorView({ settings }: { settings: AppSettings }) {
         },
         onerror: () => {
           setSpeechInitError(true);
-          speechPermittedRef.current = true;
-          setSpeechPermitted(true);
         }
       });
     } else {
@@ -1593,7 +1593,6 @@ function MonitorView({ settings }: { settings: AppSettings }) {
     if (!audioCtxRef.current) {
       audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
-    initSpeech();
   }, []);
 
   const logoUrl = settings.logo ? `/api/uploads/${settings.logo}` : '/favicon.png';
@@ -1881,10 +1880,11 @@ function WebUsbPairing() {
         <div className="flex items-center gap-2 bg-slate-950 border border-emerald-700/60 rounded-xl px-3 py-2.5 text-xs text-emerald-400">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
           <span className="flex-1 truncate">{webusbName}</span>
-          <button onClick={handleDisconnect} className="text-red-400 hover:text-red-300 font-bold uppercase text-[10px] cursor-pointer shrink-0">Ganti Printer</button>
+          <button type="button" onClick={handleDisconnect} className="text-red-400 hover:text-red-300 font-bold uppercase text-[10px] cursor-pointer shrink-0">Ganti Printer</button>
         </div>
       ) : (
         <button
+          type="button"
           onClick={handleConnect}
           className="bg-slate-950 border border-dashed border-slate-700 hover:border-blue-500/50 rounded-xl px-3 py-2.5 text-xs text-slate-400 hover:text-blue-400 transition-all cursor-pointer flex items-center gap-2"
         >
