@@ -32,6 +32,7 @@ export default function App() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [showKioskNav, setShowKioskNav] = useState<boolean>(false); // Lock kiosk view navigation by default
+  const [showMonitorNav, setShowMonitorNav] = useState<boolean>(false); // Lock monitor view navigation by default
   
   // Setup Hash Routing (allows separate monitors/tabs to open separate views)
   useEffect(() => {
@@ -43,6 +44,7 @@ export default function App() {
         setView('home');
       }
       setShowKioskNav(false); // secure kiosk panel on hash-based router switches
+      setShowMonitorNav(false); // secure monitor panel on hash-based router switches
     };
     
     handleHashChange();
@@ -74,6 +76,7 @@ export default function App() {
     window.location.hash = newView;
     setView(newView);
     setShowKioskNav(false); // Lock navigation again for the next kiosk session
+    setShowMonitorNav(false); // Lock navigation again for the next monitor session
   };
 
   // Inject Custom Dynamic Theme styles
@@ -167,11 +170,17 @@ export default function App() {
         />
       )}
       {view === 'counter' && <CounterView settings={settings!} />}
-      {view === 'monitor' && <MonitorView settings={settings!} />}
+      {view === 'monitor' && (
+        <MonitorView 
+          settings={settings!} 
+          showNav={showMonitorNav} 
+          onToggleNav={() => setShowMonitorNav(!showMonitorNav)} 
+        />
+      )}
       {view === 'settings' && <SettingsView settings={settings!} onUpdate={fetchSettings} />}
       
-      {/* App Floating Dock - Hidden on kiosk page unless toggled */}
-      {(view !== 'kiosk' || showKioskNav) && navDock}
+      {/* App Floating Dock - Hidden on kiosk/monitor page unless toggled */}
+      {(view !== 'kiosk' || showKioskNav) && (view !== 'monitor' || showMonitorNav) && navDock}
     </div>
   );
 }
@@ -1407,7 +1416,7 @@ function CounterView({ settings }: { settings: AppSettings }) {
 // ==========================================
 // 4. MONITOR VIEW (PUBLIC TELEVISION DISPLAY)
 // ==========================================
-function MonitorView({ settings }: { settings: AppSettings }) {
+function MonitorView({ settings, showNav, onToggleNav }: { settings: AppSettings, showNav: boolean, onToggleNav: () => void }) {
   const [servingNum, setServingNum] = useState<string>('-');
   const [servingLoket, setServingLoket] = useState<string>('-');
   const [stats, setStats] = useState<QueueStats>({ total: 0, sekarang: '-', selanjutnya: '-', sisa: 0 });
@@ -1807,8 +1816,18 @@ function MonitorView({ settings }: { settings: AppSettings }) {
             *** {settings.running_text} ***
           </marquee>
         </div>
-        <div className="bg-black/40 py-1 text-center text-[10px] opacity-40">
+        <div className="bg-black/40 py-1 text-center text-[10px] opacity-40 relative">
           {FOOTER_COPYRIGHT}
+          
+          {/* Subtle toggle button for navigation menu to prevent customer misclicks */}
+          <button
+            onClick={onToggleNav}
+            className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-white/10 hover:bg-white/20 text-white/60 hover:text-white rounded-xl text-[10px] font-black transition-all cursor-pointer flex items-center gap-1 border border-white/10 opacity-25 hover:opacity-100"
+            title="Toggle Navigation Menu"
+          >
+            <Settings className="w-3.5 h-3.5 animate-spin-slow" />
+            <span>{showNav ? "LOCK MENU" : "NAVIGASI"}</span>
+          </button>
         </div>
       </footer>
 
