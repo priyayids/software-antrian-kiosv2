@@ -33,6 +33,7 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(true);
   const [showKioskNav, setShowKioskNav] = useState<boolean>(false); // Lock kiosk view navigation by default
   const [showMonitorNav, setShowMonitorNav] = useState<boolean>(false); // Lock monitor view navigation by default
+  const [showCounterNav, setShowCounterNav] = useState<boolean>(false); // Lock counter view navigation by default
   
   // Setup Hash Routing (allows separate monitors/tabs to open separate views)
   useEffect(() => {
@@ -45,6 +46,7 @@ export default function App() {
       }
       setShowKioskNav(false); // secure kiosk panel on hash-based router switches
       setShowMonitorNav(false); // secure monitor panel on hash-based router switches
+      setShowCounterNav(false); // secure counter panel on hash-based router switches
     };
     
     handleHashChange();
@@ -77,6 +79,7 @@ export default function App() {
     setView(newView);
     setShowKioskNav(false); // Lock navigation again for the next kiosk session
     setShowMonitorNav(false); // Lock navigation again for the next monitor session
+    setShowCounterNav(false); // Lock navigation again for the next counter session
   };
 
   // Inject Custom Dynamic Theme styles
@@ -169,7 +172,13 @@ export default function App() {
           onToggleNav={() => setShowKioskNav(!showKioskNav)} 
         />
       )}
-      {view === 'counter' && <CounterView settings={settings!} />}
+      {view === 'counter' && (
+        <CounterView 
+          settings={settings!} 
+          showNav={showCounterNav} 
+          onToggleNav={() => setShowCounterNav(!showCounterNav)} 
+        />
+      )}
       {view === 'monitor' && (
         <MonitorView 
           settings={settings!} 
@@ -180,7 +189,7 @@ export default function App() {
       {view === 'settings' && <SettingsView settings={settings!} onUpdate={fetchSettings} />}
       
       {/* App Floating Dock - Hidden on kiosk/monitor page unless toggled */}
-      {(view !== 'kiosk' || showKioskNav) && (view !== 'monitor' || showMonitorNav) && navDock}
+      {(view !== 'kiosk' || showKioskNav) && (view !== 'monitor' || showMonitorNav) && (view !== 'counter' || showCounterNav) && navDock}
     </div>
   );
 }
@@ -1004,7 +1013,7 @@ function KioskView({ settings, showNav, onToggleNav }: { settings: AppSettings, 
 // ==========================================
 // 3. OPERATOR / COUNTER VIEW (PANGGILAN)
 // ==========================================
-function CounterView({ settings }: { settings: AppSettings }) {
+function CounterView({ settings, showNav, onToggleNav }: { settings: AppSettings, showNav: boolean, onToggleNav: () => void }) {
   const [selectedLoket, setSelectedLoket] = useState<string>('1');
   const [queues, setQueues] = useState<QueueItem[]>([]);
   const [stats, setStats] = useState<QueueStats>({ total: 0, sekarang: '-', selanjutnya: '-', sisa: 0 });
@@ -1406,8 +1415,18 @@ function CounterView({ settings }: { settings: AppSettings }) {
       )}
 
       {/* Footer info */}
-      <footer className="py-4 px-8 text-center text-xs text-slate-400 bg-white border-t border-slate-200/80">
+      <footer className="py-4 px-8 text-center text-xs text-slate-400 bg-white border-t border-slate-200/80 relative">
         {FOOTER_COPYRIGHT}
+        
+        {/* Subtle toggle button for navigation menu to prevent customer misclicks */}
+        <button
+          onClick={onToggleNav}
+          className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-slate-200/40 hover:bg-slate-200/90 text-slate-500 hover:text-slate-800 rounded-xl text-[10px] font-black transition-all cursor-pointer flex items-center gap-1 border border-slate-300/30 opacity-25 hover:opacity-100"
+          title="Toggle Navigation Menu"
+        >
+          <Settings className="w-3.5 h-3.5 animate-spin-slow" />
+          <span>{showNav ? "LOCK MENU" : "NAVIGASI"}</span>
+        </button>
       </footer>
     </div>
   );
