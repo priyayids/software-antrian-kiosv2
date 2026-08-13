@@ -61,37 +61,36 @@ Sistem Antrian Niscaya adalah aplikasi manajemen antrian digital yang dirancang 
 
 ## Panduan Deploy
 
-### Prasyarat
+### Mode Production (CI/CD Otomatis)
 
-- Docker & Docker Compose terinstal
-- Port 80 dan 443 tersedia
+Project ini menggunakan **GitHub Actions** untuk deploy otomatis ke VPS produksi
+(`https://app-cube.tech`). Alur:
 
-### Instalasi (Pertama Kali)
+1. **CI** (`.github/workflows/ci.yml`) — `npm ci`, lint, dan build dijalankan setiap push/PR ke `main`.
+2. **CD** (`.github/workflows/deploy.yml`) — jika CI lulus, workflow men-SSH ke VPS dan menjalankan
+   `/usr/local/bin/niscaya-deploy.sh`, yang melakukan:
+   - `git fetch` + `git reset --hard origin/main` di `/srv/software-antrian-niscaya`
+   - Rebuild & restart container app (`docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build app`)
+   - Health check (HTTP 200) dengan rollback otomatis ke commit sebelumnya jika gagal
 
-```bash
-git clone https://github.com/anomalyco/software-antrian-kiosv2.git
-cd software-antrian-kiosv2
-chmod +x deploy.sh
-./deploy.sh
-```
-
-Atau secara manual:
+Cukup **push ke `main`** — deployment berjalan otomatis. Deploy manual:
 
 ```bash
-docker compose up -d --build
+# Di VPS (sebagai user deploy)
+sudo /usr/local/bin/niscaya-deploy.sh            # deploy
+sudo /usr/local/bin/niscaya-deploy.sh --dry-run  # lihat yang akan di-deploy
 ```
 
-Akses aplikasi di **http://localhost**
+### Secret yang dibutuhkan GitHub Actions
 
-### Penggunaan Sehari-hari
+Tambahkan di **Settings → Secrets and variables → Actions** repo:
 
-```bash
-# Menyalakan
-./start.sh
-
-# Mematikan
-./stop.sh
-```
+| Secret | Nilai |
+|--------|-------|
+| `VPS_HOST` | Alamat IP VPS |
+| `VPS_USER` | User SSH (biasanya `deploy`) |
+| `VPS_PORT` | Port SSH (default `22`) |
+| `VPS_SSH_KEY` | Private key SSH untuk user deploy |
 
 ### Mode Development
 
@@ -113,10 +112,12 @@ Akses di **http://localhost:3000**
 ├── assets/               # Sumber daya (favicon, dll)
 ├── storage/              # Data runtime (tidak di-commit)
 ├── ssl/                  # Sertifikat SSL (tidak di-commit)
+├── .github/workflows/    # CI/CD GitHub Actions
 ├── docker-compose.yml    # Orkestrasi container
+├── docker-compose.prod.yml # Override konfigurasi production
 ├── Dockerfile            # Build image
 ├── nginx.conf            # Reverse-proxy Nginx
-└── deploy.sh             # Script deploy otomatis
+└── scripts/              # Script pendukung (deploy, print)
 ```
 
 ## Konfigurasi
