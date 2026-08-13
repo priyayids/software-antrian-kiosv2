@@ -1866,7 +1866,19 @@ function MonitorView({ settings, showNav, onToggleNav }: { settings: AppSettings
 // ==========================================
 // WebUSB Pairing Component (used in SettingsView)
 // ==========================================
-function WebUsbPairing() {
+function isDarkColor(hex: string | undefined): boolean {
+  if (!hex) return false;
+  const c = hex.replace('#', '');
+  const full = c.length === 3 ? c.split('').map((ch) => ch + ch).join('') : c;
+  if (!/^[0-9a-fA-F]{6}$/.test(full)) return false;
+  const r = parseInt(full.slice(0, 2), 16);
+  const g = parseInt(full.slice(2, 4), 16);
+  const b = parseInt(full.slice(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance < 0.55;
+}
+
+function WebUsbPairing({ dark }: { dark: boolean }) {
   const [webusbConnected, setWebusbConnected] = useState(false);
   const [webusbName, setWebusbName] = useState('');
   const devRef = useRef<USBDevice | null>(null);
@@ -1913,9 +1925,9 @@ function WebUsbPairing() {
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">Printer USB (WebUSB)</label>
+      <label className={`text-xs font-bold uppercase tracking-wide ${dark ? 'text-slate-400' : 'text-slate-500'}`}>Printer USB (WebUSB)</label>
       {webusbConnected ? (
-        <div className="flex items-center gap-2 bg-slate-950 border border-emerald-700/60 rounded-xl px-3 py-2.5 text-xs text-emerald-400">
+        <div className={`flex items-center gap-2 border rounded-xl px-3 py-2.5 text-xs ${dark ? 'bg-slate-900/70 border-emerald-700/60 text-emerald-400' : 'bg-white border-emerald-300 text-emerald-600'}`}>
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
           <span className="flex-1 truncate">{webusbName}</span>
           <button type="button" onClick={handleDisconnect} className="text-red-400 hover:text-red-300 font-bold uppercase text-[10px] cursor-pointer shrink-0">Ganti Printer</button>
@@ -1924,7 +1936,7 @@ function WebUsbPairing() {
         <button
           type="button"
           onClick={handleConnect}
-          className="bg-slate-950 border border-dashed border-slate-700 hover:border-blue-500/50 rounded-xl px-3 py-2.5 text-xs text-slate-400 hover:text-blue-400 transition-all cursor-pointer flex items-center gap-2"
+          className={`border border-dashed rounded-xl px-3 py-2.5 text-xs transition-all cursor-pointer flex items-center gap-2 ${dark ? 'bg-slate-900/70 border-slate-700 hover:border-[var(--color-accent)] text-slate-400 hover:text-[var(--color-accent)]' : 'bg-white border-slate-300 hover:border-[var(--color-accent)] text-slate-500 hover:text-[var(--color-accent)]'}`}
         >
           <Usb className="w-4 h-4" />
           <span>Hubungkan Printer USB</span>
@@ -2119,16 +2131,33 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
 
   const logoUrl = logoName ? `/api/uploads/${logoName}` : '/favicon.png';
 
+  // Adaptive theme styling (light/dark) driven by the selected theme
+  const isDark = isDarkColor(settings.warna_background);
+  const accent = settings.warna_accent || '#2563eb';
+  const surfaceCard = isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200';
+  const surfaceSub = isDark ? 'bg-slate-900/60 border-slate-800/80' : 'bg-slate-50 border-slate-200/80';
+  const inputClass = isDark
+    ? 'bg-slate-900/70 border-slate-700/80 text-slate-200 placeholder-slate-500'
+    : 'bg-white border-slate-300 text-slate-800 placeholder-slate-400';
+  const inputInner = isDark
+    ? 'bg-slate-950/80 border-slate-800 text-slate-100 placeholder-slate-600'
+    : 'bg-white border-slate-300 text-slate-800 placeholder-slate-400';
+  const headingText = isDark ? 'text-slate-300' : 'text-slate-700';
+  const mutedText = isDark ? 'text-slate-400' : 'text-slate-500';
+  const subtleText = isDark ? 'text-slate-500' : 'text-slate-400';
+  const divider = isDark ? 'border-slate-800' : 'border-slate-200';
+  const bodyText = isDark ? 'text-slate-100' : 'text-slate-800';
+
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col justify-between">
-      <header className="bg-slate-950 border-b border-slate-800 px-8 py-5 flex items-center justify-between">
+    <div className={`min-h-screen flex flex-col justify-between transition-colors duration-300 ${bodyText}`} style={{ backgroundColor: 'var(--color-bg)' }}>
+      <header className="px-8 py-5 flex items-center justify-between border-b" style={{ backgroundColor: 'var(--color-primary)', borderColor: 'rgba(0, 0, 0, 0.05)' }}>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-pink-500/10 text-pink-500 rounded-xl border border-pink-500/20">
+          <div className="p-2 rounded-xl border" style={{ backgroundColor: `${accent}1a`, color: accent, borderColor: `${accent}30` }}>
             <Settings className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-lg font-extrabold tracking-wide text-white uppercase">{settings.nama_instansi}</h1>
-            <p className="text-xs text-slate-400">Pengaturan & Kustomisasi Branding Kios</p>
+            <h1 className="text-lg font-extrabold tracking-wide uppercase" style={{ color: 'var(--color-secondary)' }}>{settings.nama_instansi}</h1>
+            <p className="text-xs opacity-70" style={{ color: 'var(--color-secondary)' }}>Pengaturan & Kustomisasi Branding Kios</p>
           </div>
         </div>
       </header>
@@ -2137,33 +2166,33 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
         <form onSubmit={handleSaveSettings} className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
           
           {/* Column 1: Core details & Ticker & Video */}
-          <div className="md:col-span-2 bg-slate-950 border border-slate-800 rounded-2xl p-6 flex flex-col gap-5 shadow-xl">
-            <h3 className="text-sm font-black text-slate-300 uppercase tracking-wider pb-3 border-b border-slate-800">
+          <div className={`md:col-span-2 rounded-2xl p-6 flex flex-col gap-5 shadow-xl ${surfaceCard}`}>
+            <h3 className={`text-sm font-black ${headingText} uppercase tracking-wider pb-3 border-b ${divider}`}>
               Profil Instansi & Media
             </h3>
 
             {/* Nama Instansi */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">Nama Instansi</label>
+              <label className={`text-xs font-bold ${mutedText} uppercase tracking-wide`}>Nama Instansi</label>
               <input
                 type="text"
                 required
                 value={instansi}
                 onChange={(e) => setInstansi(e.target.value)}
-                className="bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-pink-500 transition-colors"
+                className={`${inputClass} rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[var(--color-accent)] transition-colors`}
                 placeholder="Masukkan nama instansi / perusahaan"
               />
             </div>
 
             {/* Alamat */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">Alamat Kontak</label>
+              <label className={`text-xs font-bold ${mutedText} uppercase tracking-wide`}>Alamat Kontak</label>
               <textarea
                 required
                 value={alamat}
                 onChange={(e) => setAlamat(e.target.value)}
                 rows={3}
-                className="bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-pink-500 transition-colors"
+                className={`${inputClass} rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[var(--color-accent)] transition-colors`}
                 placeholder="Masukkan alamat lengkap instansi"
               />
             </div>
@@ -2171,37 +2200,37 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
             {/* Telp & Email */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">Nomor Telepon</label>
+                <label className={`text-xs font-bold ${mutedText} uppercase tracking-wide`}>Nomor Telepon</label>
                 <input
                   type="text"
                   required
                   value={telpon}
                   onChange={(e) => setTelpon(e.target.value)}
-                  className="bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-pink-500 transition-colors"
+                  className={`${inputClass} rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[var(--color-accent)] transition-colors`}
                 />
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">Alamat Email</label>
+                <label className={`text-xs font-bold ${mutedText} uppercase tracking-wide`}>Alamat Email</label>
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-pink-500 transition-colors"
+                  className={`${inputClass} rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[var(--color-accent)] transition-colors`}
                 />
               </div>
             </div>
 
             {/* Running Text */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">Running Text Ticker</label>
+              <label className={`text-xs font-bold ${mutedText} uppercase tracking-wide`}>Running Text Ticker</label>
               <input
                 type="text"
                 required
                 value={runningText}
                 onChange={(e) => setRunningText(e.target.value)}
-                className="bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-pink-500 transition-colors"
+                className={`${inputClass} rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[var(--color-accent)] transition-colors`}
                 placeholder="Pesan pengumuman yang berjalan di bawah monitor display"
               />
             </div>
@@ -2209,34 +2238,34 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
             {/* YouTube ID */}
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">YouTube Video ID</label>
-                <span className="text-[10px] text-slate-500">Tulis <code className="bg-slate-900 px-1 py-0.5 rounded">-</code> untuk mematikan video</span>
+                <label className={`text-xs font-bold ${mutedText} uppercase tracking-wide`}>YouTube Video ID</label>
+                <span className={`text-[10px] ${subtleText}`}>Tulis <code className={`${inputClass} px-1 py-0.5 rounded`}>-</code> untuk mematikan video</span>
               </div>
               <input
                 type="text"
                 required
                 value={youtubeId}
                 onChange={(e) => setYoutubeId(e.target.value)}
-                className="bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-pink-500 transition-colors"
+                className={`${inputClass} rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[var(--color-accent)] transition-colors`}
                 placeholder="ID di ujung tautan youtube (misal: Srr5BCta8UY)"
               />
             </div>
 
             {/* Konfigurasi Mesin Cetak Tiket (Printer) */}
-            <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800/80 flex flex-col gap-4">
-              <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
-                <Printer className="w-4 h-4 text-pink-500" />
-                <h4 className="text-xs font-black text-slate-300 uppercase tracking-wider">Konfigurasi Printer Tiket Kios</h4>
+            <div className={`${surfaceSub} p-5 rounded-2xl flex flex-col gap-4`}>
+              <div className={`flex items-center gap-2 border-b ${divider} pb-2`}>
+                <Printer className="w-4 h-4" style={{ color: accent }} />
+                <h4 className={`text-xs font-black ${headingText} uppercase tracking-wider`}>Konfigurasi Printer Tiket Kios</h4>
               </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Metode Pencetakan */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">Metode Pencetakan</label>
+                  <label className={`text-xs font-bold ${mutedText} uppercase tracking-wide`}>Metode Pencetakan</label>
                   <select
                     value={printerType}
                     onChange={(e) => setPrinterType(e.target.value as any)}
-                    className="bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition-colors"
+                    className={`${inputInner} rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-[var(--color-accent)] transition-colors`}
                   >
                     <option value="browser">Dialog Cetak Browser (window.print)</option>
                     <option value="windows_local">Windows Local Direct (Mencetak otomatis via Server Lokal)</option>
@@ -2245,27 +2274,27 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
                   </select>
                 </div>
 
-                {printerType === 'webusb' && <WebUsbPairing />}
+                {printerType === 'webusb' && <WebUsbPairing dark={isDark} />}
 
                 {/* Nama Printer / Lokasi */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">Nama / Driver Printer</label>
+                  <label className={`text-xs font-bold ${mutedText} uppercase tracking-wide`}>Nama / Driver Printer</label>
                   <input
                     type="text"
                     value={printerName}
                     onChange={(e) => setPrinterName(e.target.value)}
-                    className="bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition-colors"
+                    className={`${inputInner} rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-[var(--color-accent)] transition-colors`}
                     placeholder="Kosongkan untuk printer default (opsional)"
                     disabled={printerType === 'browser'}
                   />
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">Lebar Kertas Thermal</label>
+                  <label className={`text-xs font-bold ${mutedText} uppercase tracking-wide`}>Lebar Kertas Thermal</label>
                   <select
                     value={printerPaperWidth}
                     onChange={(e) => setPrinterPaperWidth(e.target.value as '58' | '80')}
-                    className="bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition-colors"
+                    className={`${inputInner} rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-[var(--color-accent)] transition-colors`}
                   >
                     <option value="58">58mm</option>
                     <option value="80">80mm</option>
@@ -2274,7 +2303,7 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
               </div>
 
               {/* Deskripsi bantuan interaktif */}
-              <div className="text-[10px] text-slate-500 bg-slate-950/40 p-3 rounded-xl border border-slate-800/60 leading-relaxed">
+              <div className={`text-[10px] ${subtleText} p-3 rounded-xl border leading-relaxed ${isDark ? 'bg-slate-950/40 border-slate-800/60' : 'bg-slate-100/60 border-slate-200/60'}`}>
                 {printerType === 'browser' && (
                   <span><strong>Info:</strong> Menggunakan jendela cetak browser standar. Cocok untuk pengujian cepat. Membutuhkan konfirmasi klik pada dialog browser.</span>
                 )}
@@ -2292,28 +2321,29 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
 
             {/* Counter Loket Management */}
             <div className="flex flex-col gap-3 mt-2">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wide block">Kelola Loket Pelayanan</label>
+              <label className={`text-xs font-bold ${mutedText} uppercase tracking-wide block`}>Kelola Loket Pelayanan</label>
               
               {/* Input row */}
-              <div className="flex gap-2 bg-slate-900 border border-slate-800 p-2 rounded-xl">
+              <div className={`flex gap-2 p-2 rounded-xl ${surfaceSub}`}>
                 <input
                   type="text"
                   placeholder="No (misal: 1)"
                   value={newLoketNum}
                   onChange={(e) => setNewLoketNum(e.target.value)}
-                  className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none w-24"
+                  className={`${inputInner} rounded-lg px-3 py-2 text-xs focus:outline-none w-24`}
                 />
                 <input
                   type="text"
                   placeholder="Nama Loket (misal: LOKET ADMISI 1)"
                   value={newLoketName}
                   onChange={(e) => setNewLoketName(e.target.value)}
-                  className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none flex-1"
+                  className={`${inputInner} rounded-lg px-3 py-2 text-xs focus:outline-none flex-1`}
                 />
                 <button
                   type="button"
                   onClick={addLoketItem}
-                  className="bg-pink-600 hover:bg-pink-700 text-white font-bold rounded-lg px-3 flex items-center justify-center gap-1 text-xs cursor-pointer"
+                  style={{ backgroundColor: 'var(--color-accent)' }}
+                  className="text-white font-bold rounded-lg px-3 flex items-center justify-center gap-1 text-xs cursor-pointer hover:brightness-110 transition-all"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Tambah</span>
@@ -2321,10 +2351,10 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
               </div>
 
               {/* Table list */}
-              <div className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden max-h-[220px] overflow-y-auto">
+              <div className={`rounded-xl overflow-hidden max-h-[220px] overflow-y-auto border ${isDark ? 'bg-slate-900/50 border-slate-800' : 'bg-white border-slate-200'}`}>
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="bg-slate-900 border-b border-slate-800 font-bold text-slate-400">
+                    <tr className={`border-b font-bold ${mutedText} ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
                       <th className="py-2 px-4">No Loket</th>
                       <th className="py-2 px-4">Nama Counter</th>
                       <th className="py-2 px-4 text-center">Tindakan</th>
@@ -2337,9 +2367,9 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
                       </tr>
                     ) : (
                       listLoket.map((l, i) => (
-                        <tr key={i} className="border-b border-slate-800/60 hover:bg-slate-900/40">
-                          <td className="py-2.5 px-4 font-mono font-bold text-pink-400">{l.no_loket}</td>
-                          <td className="py-2.5 px-4 uppercase font-semibold text-slate-300">{l.nama_loket}</td>
+                        <tr key={i} className={`border-b ${isDark ? 'border-slate-800/60 hover:bg-slate-900/40' : 'border-slate-200/60 hover:bg-slate-50'}`}>
+                          <td className="py-2.5 px-4 font-mono font-bold" style={{ color: accent }}>{l.no_loket}</td>
+                          <td className={`py-2.5 px-4 uppercase font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{l.nama_loket}</td>
                           <td className="py-2.5 px-4 text-center">
                             <button
                               type="button"
@@ -2362,8 +2392,8 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
           {/* Column 2: Logo upload & Dynamic styling & Save button */}
           <div className="flex flex-col gap-6">
             {/* Logo image upload container */}
-            <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col items-center text-center gap-4">
-              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-widest block w-full text-left pb-2 border-b border-slate-800 flex justify-between items-center">
+            <div className={`rounded-2xl p-6 shadow-xl flex flex-col items-center text-center gap-4 ${surfaceCard}`}>
+              <h4 className={`text-xs font-bold ${headingText} uppercase tracking-widest block w-full text-left pb-2 border-b ${divider} flex justify-between items-center`}>
                 <span>Logo Instansi</span>
                 {logoName && (
                   <button 
@@ -2376,7 +2406,7 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
                 )}
               </h4>
 
-              <div className="relative border border-slate-800 p-3 rounded-2xl bg-slate-900">
+              <div className={`relative border p-3 rounded-2xl ${isDark ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-slate-50'}`}>
                 <img
                   src={logoUrl}
                   alt="Instansi Logo"
@@ -2394,10 +2424,10 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
 
               {/* Upload field */}
               <div className="w-full">
-                <label className="border-2 border-dashed border-slate-800 hover:border-pink-500/50 hover:bg-slate-900/40 rounded-xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all">
-                  <Upload className="w-6 h-6 text-pink-500 animate-bounce" />
+                <label className={`border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all ${isDark ? 'border-slate-800 hover:border-[var(--color-accent)] hover:bg-slate-900/40' : 'border-slate-300 hover:border-[var(--color-accent)] hover:bg-slate-100'}`}>
+                  <Upload className="w-6 h-6 animate-bounce" style={{ color: accent }} />
                   <span className="text-xs font-bold">Pilih / Seret Logo Baru</span>
-                  <span className="text-[9px] text-slate-500">Format PNG/JPG/WEBP/SVG</span>
+                  <span className={`text-[9px] ${subtleText}`}>Format PNG/JPG/WEBP/SVG</span>
                   <input
                     type="file"
                     accept="image/*,.svg"
@@ -2410,14 +2440,14 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
                   />
                 </label>
                 {uploadStatus && (
-                  <p className="text-[10px] text-pink-400 mt-2 font-semibold">{uploadStatus}</p>
+                  <p className="text-[10px] mt-2 font-semibold" style={{ color: accent }}>{uploadStatus}</p>
                 )}
               </div>
             </div>
 
             {/* Hero Image upload container */}
-            <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col items-center text-center gap-4">
-              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-widest block w-full text-left pb-2 border-b border-slate-800 flex justify-between items-center">
+            <div className={`rounded-2xl p-6 shadow-xl flex flex-col items-center text-center gap-4 ${surfaceCard}`}>
+              <h4 className={`text-xs font-bold ${headingText} uppercase tracking-widest block w-full text-left pb-2 border-b ${divider} flex justify-between items-center`}>
                 <span>Hero Image Tampilan</span>
                 {heroImage && (
                   <button 
@@ -2430,7 +2460,7 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
                 )}
               </h4>
 
-              <div className="relative border border-slate-800 p-3 rounded-2xl bg-slate-900 w-full flex justify-center">
+              <div className={`relative border p-3 rounded-2xl w-full flex justify-center ${isDark ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-slate-50'}`}>
                 {heroImage ? (
                   <img
                     src={`/api/uploads/${heroImage}`}
@@ -2446,7 +2476,7 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
                     }}
                   />
                 ) : (
-                  <div className="h-28 w-full bg-slate-950 rounded-lg flex items-center justify-center text-xs text-slate-600 italic">
+                  <div className={`h-28 w-full rounded-lg flex items-center justify-center text-xs italic ${isDark ? 'bg-slate-950 text-slate-600' : 'bg-slate-100 text-slate-500'}`}>
                     Belum ada background hero image
                   </div>
                 )}
@@ -2454,10 +2484,10 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
 
               {/* Upload field */}
               <div className="w-full">
-                <label className="border-2 border-dashed border-slate-800 hover:border-pink-500/50 hover:bg-slate-900/40 rounded-xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all">
-                  <Upload className="w-6 h-6 text-pink-500 animate-bounce" />
+                <label className={`border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all ${isDark ? 'border-slate-800 hover:border-[var(--color-accent)] hover:bg-slate-900/40' : 'border-slate-300 hover:border-[var(--color-accent)] hover:bg-slate-100'}`}>
+                  <Upload className="w-6 h-6 animate-bounce" style={{ color: accent }} />
                   <span className="text-xs font-bold">Pilih / Seret Background Baru</span>
-                  <span className="text-[9px] text-slate-500">Format PNG/JPG/WEBP/SVG</span>
+                  <span className={`text-[9px] ${subtleText}`}>Format PNG/JPG/WEBP/SVG</span>
                   <input
                     type="file"
                     accept="image/*,.svg"
@@ -2470,15 +2500,15 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
                   />
                 </label>
                 {heroUploadStatus && (
-                  <p className="text-[10px] text-pink-400 mt-2 font-semibold">{heroUploadStatus}</p>
+                  <p className="text-[10px] mt-2 font-semibold" style={{ color: accent }}>{heroUploadStatus}</p>
                 )}
               </div>
 
               {/* Hero opacity control */}
-              <div className="w-full flex flex-col gap-2 text-left mt-2 border-t border-slate-800/60 pt-4">
+              <div className={`w-full flex flex-col gap-2 text-left mt-2 border-t ${divider} pt-4`}>
                 <div className="flex justify-between items-center">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Transparansi / Opacity Hero</label>
-                  <span className="text-[11px] font-mono text-pink-400 font-bold">{Math.round(heroOpacity * 100)}%</span>
+                  <label className={`text-[10px] font-bold ${mutedText} uppercase tracking-wide`}>Transparansi / Opacity Hero</label>
+                  <span className="text-[11px] font-mono font-bold" style={{ color: accent }}>{Math.round(heroOpacity * 100)}%</span>
                 </div>
                 <input
                   type="range"
@@ -2487,99 +2517,99 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
                   step="0.05"
                   value={heroOpacity}
                   onChange={(e) => setHeroOpacity(parseFloat(e.target.value))}
-                  className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-pink-500"
+                  className={`w-full h-1.5 rounded-lg appearance-none cursor-pointer accent-[var(--color-accent)] ${isDark ? 'bg-slate-800' : 'bg-slate-300'}`}
                 />
               </div>
             </div>
 
             {/* Custom Theme Color Picker */}
-            <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col gap-4">
-              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-widest block w-full text-left pb-2 border-b border-slate-800">
+            <div className={`rounded-2xl p-6 shadow-xl flex flex-col gap-4 ${surfaceCard}`}>
+              <h4 className={`text-xs font-bold ${headingText} uppercase tracking-widest block w-full text-left pb-2 border-b ${divider}`}>
                 Warna Tema Tampilan
               </h4>
 
               <div className="grid grid-cols-2 gap-4">
                 {/* Primary */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Warna Header</label>
-                  <div className="flex gap-2 items-center bg-slate-900 p-1.5 rounded-lg border border-slate-800">
+                  <label className={`text-[10px] font-bold ${mutedText} uppercase tracking-wide`}>Warna Header</label>
+                  <div className={`flex gap-2 items-center p-1.5 rounded-lg border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'}`}>
                     <input
                       type="color"
                       value={primaryColor}
                       onChange={(e) => setPrimaryColor(e.target.value)}
                       className="w-8 h-8 rounded border-0 bg-transparent cursor-pointer shrink-0"
                     />
-                    <span className="font-mono text-[10px] text-slate-400">{primaryColor}</span>
+                    <span className={`font-mono text-[10px] ${subtleText}`}>{primaryColor}</span>
                   </div>
                 </div>
 
                 {/* Secondary */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Warna Font Header</label>
-                  <div className="flex gap-2 items-center bg-slate-900 p-1.5 rounded-lg border border-slate-800">
+                  <label className={`text-[10px] font-bold ${mutedText} uppercase tracking-wide`}>Warna Font Header</label>
+                  <div className={`flex gap-2 items-center p-1.5 rounded-lg border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'}`}>
                     <input
                       type="color"
                       value={secondaryColor}
                       onChange={(e) => setSecondaryColor(e.target.value)}
                       className="w-8 h-8 rounded border-0 bg-transparent cursor-pointer shrink-0"
                     />
-                    <span className="font-mono text-[10px] text-slate-400">{secondaryColor}</span>
+                    <span className={`font-mono text-[10px] ${subtleText}`}>{secondaryColor}</span>
                   </div>
                 </div>
 
                 {/* Accent */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Warna Tombol</label>
-                  <div className="flex gap-2 items-center bg-slate-900 p-1.5 rounded-lg border border-slate-800">
+                  <label className={`text-[10px] font-bold ${mutedText} uppercase tracking-wide`}>Warna Tombol</label>
+                  <div className={`flex gap-2 items-center p-1.5 rounded-lg border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'}`}>
                     <input
                       type="color"
                       value={accentColor}
                       onChange={(e) => setAccentColor(e.target.value)}
                       className="w-8 h-8 rounded border-0 bg-transparent cursor-pointer shrink-0"
                     />
-                    <span className="font-mono text-[10px] text-slate-400">{accentColor}</span>
+                    <span className={`font-mono text-[10px] ${subtleText}`}>{accentColor}</span>
                   </div>
                 </div>
 
                 {/* Background */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Background Monitor</label>
-                  <div className="flex gap-2 items-center bg-slate-900 p-1.5 rounded-lg border border-slate-800">
+                  <label className={`text-[10px] font-bold ${mutedText} uppercase tracking-wide`}>Background Monitor</label>
+                  <div className={`flex gap-2 items-center p-1.5 rounded-lg border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'}`}>
                     <input
                       type="color"
                       value={bgColor}
                       onChange={(e) => setBgColor(e.target.value)}
                       className="w-8 h-8 rounded border-0 bg-transparent cursor-pointer shrink-0"
                     />
-                    <span className="font-mono text-[10px] text-slate-400">{bgColor}</span>
+                    <span className={`font-mono text-[10px] ${subtleText}`}>{bgColor}</span>
                   </div>
                 </div>
 
                 {/* Home BG */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Background Home</label>
-                  <div className="flex gap-2 items-center bg-slate-900 p-1.5 rounded-lg border border-slate-800">
+                  <label className={`text-[10px] font-bold ${mutedText} uppercase tracking-wide`}>Background Home</label>
+                  <div className={`flex gap-2 items-center p-1.5 rounded-lg border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'}`}>
                     <input
                       type="color"
                       value={homeBgColor}
                       onChange={(e) => setHomeBgColor(e.target.value)}
                       className="w-8 h-8 rounded border-0 bg-transparent cursor-pointer shrink-0"
                     />
-                    <span className="font-mono text-[10px] text-slate-400">{homeBgColor}</span>
+                    <span className={`font-mono text-[10px] ${subtleText}`}>{homeBgColor}</span>
                   </div>
                 </div>
 
                 {/* Home Text */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Warna Teks Home</label>
-                  <div className="flex gap-2 items-center bg-slate-900 p-1.5 rounded-lg border border-slate-800">
+                  <label className={`text-[10px] font-bold ${mutedText} uppercase tracking-wide`}>Warna Teks Home</label>
+                  <div className={`flex gap-2 items-center p-1.5 rounded-lg border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'}`}>
                     <input
                       type="color"
                       value={homeTextColor}
                       onChange={(e) => setHomeTextColor(e.target.value)}
                       className="w-8 h-8 rounded border-0 bg-transparent cursor-pointer shrink-0"
                     />
-                    <span className="font-mono text-[10px] text-slate-400">{homeTextColor}</span>
+                    <span className={`font-mono text-[10px] ${subtleText}`}>{homeTextColor}</span>
                   </div>
                 </div>
               </div>
@@ -2589,7 +2619,8 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
             <button
               type="submit"
               disabled={isSaving}
-              className="w-full bg-pink-600 hover:bg-pink-700 text-white font-black py-4 px-6 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-pink-600/10 disabled:opacity-50 cursor-pointer text-sm uppercase tracking-wider"
+              style={{ backgroundColor: 'var(--color-accent)' }}
+              className="w-full text-white font-black py-4 px-6 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg disabled:opacity-50 cursor-pointer text-sm uppercase tracking-wider hover:brightness-110"
             >
               {isSaving ? (
                 <>
@@ -2608,14 +2639,14 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
         </form>
 
         {/* Web Style Guide & Design Consistency System */}
-        <div className="mt-8 bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col gap-5">
-          <div className="flex items-center gap-2.5 border-b border-slate-800 pb-3">
-            <Sparkles className="w-5 h-5 text-pink-500 animate-pulse" />
+        <div className={`mt-8 rounded-2xl p-6 shadow-xl flex flex-col gap-5 ${surfaceCard}`}>
+          <div className={`flex items-center gap-2.5 border-b ${divider} pb-3`}>
+            <Sparkles className="w-5 h-5 animate-pulse" style={{ color: accent }} />
             <div>
-              <h3 className="text-sm font-black text-slate-200 uppercase tracking-wider">
+              <h3 className={`text-sm font-black ${isDark ? 'text-slate-200' : 'text-slate-800'} uppercase tracking-wider`}>
                 Theme Style Selection
               </h3>
-              <p className="text-[10px] text-slate-500 mt-0.5">
+              <p className={`text-[10px] ${mutedText} mt-0.5`}>
                 Gunakan panduan preset warna di bawah ini untuk memastikan keselarasan desain visual di seluruh halaman aplikasi (Home, Kiosk, Operator, Monitor).
               </p>
             </div>
@@ -2623,10 +2654,10 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
             {/* 1. Quick Presets */}
-            <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-xl flex flex-col justify-between">
+            <div className={`p-4 rounded-xl border flex flex-col justify-between ${isDark ? 'bg-slate-900/40 border-slate-800' : 'bg-slate-100/60 border-slate-200'}`}>
               <div>
-                <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wide mb-1">1-Click Presets Harmonik</h4>
-                <p className="text-[10px] text-slate-500 mb-3 leading-relaxed">
+                <h4 className={`text-xs font-bold ${headingText} uppercase tracking-wide mb-1`}>1-Click Presets Harmonik</h4>
+                <p className={`text-[10px] ${mutedText} mb-3 leading-relaxed`}>
                   Pilih preset industri di bawah ini untuk menerapkan skema warna yang diuji secara profesional dan konsisten secara instan.
                 </p>
               </div>
@@ -2685,11 +2716,11 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
                       setHomeBgColor(p.homeBg);
                       setHomeTextColor(p.homeText);
                     }}
-                    className="w-full text-left p-2.5 bg-slate-950 hover:bg-slate-900 border border-slate-800 hover:border-slate-700/80 rounded-lg transition-all cursor-pointer flex justify-between items-center group"
+                    className={`w-full text-left p-2.5 border rounded-lg transition-all cursor-pointer flex justify-between items-center group ${isDark ? 'bg-slate-950 hover:bg-slate-900 border-slate-800 hover:border-slate-700/80' : 'bg-white hover:bg-slate-50 border-slate-200 hover:border-slate-300'}`}
                   >
                     <div>
-                      <div className="text-[10px] font-bold text-slate-300 group-hover:text-pink-400 transition-colors">{p.name}</div>
-                      <div className="text-[9px] text-slate-500 mt-0.5">{p.desc}</div>
+                      <div className={`text-[10px] font-bold ${isDark ? 'text-slate-300' : 'text-slate-700'} group-hover:text-[var(--color-accent)] transition-colors`}>{p.name}</div>
+                      <div className={`text-[9px] ${subtleText} mt-0.5`}>{p.desc}</div>
                     </div>
                     {/* Tiny Color Swatches */}
                     <div className="flex gap-1">
@@ -2703,10 +2734,10 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
             </div>
 
             {/* 3. Live Style Preview */}
-            <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-xl flex flex-col justify-between">
+            <div className={`p-4 rounded-xl border flex flex-col justify-between ${isDark ? 'bg-slate-900/40 border-slate-800' : 'bg-slate-100/60 border-slate-200'}`}>
               <div>
-                <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wide mb-1">Live Palette Preview</h4>
-                <p className="text-[10px] text-slate-500 mb-3 leading-relaxed">
+                <h4 className={`text-xs font-bold ${headingText} uppercase tracking-wide mb-1`}>Live Palette Preview</h4>
+                <p className={`text-[10px] ${mutedText} mb-3 leading-relaxed`}>
                   Pratinjau visual palet warna yang Anda pilih saat ini sebelum menyimpannya ke database.
                 </p>
               </div>
@@ -2735,7 +2766,7 @@ function SettingsView({ settings, onUpdate }: { settings: AppSettings, onUpdate:
       </main>
 
       {/* Footer info */}
-      <footer className="py-4 px-8 text-center text-xs text-slate-500 bg-slate-950 border-t border-slate-800/60 mt-12">
+      <footer className={`py-4 px-8 text-center text-xs ${mutedText} border-t mt-12 ${isDark ? 'bg-slate-950/80 border-slate-800/60' : 'bg-white/70 border-slate-200'}`}>
         {FOOTER_COPYRIGHT}
       </footer>
     </div>

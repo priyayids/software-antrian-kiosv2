@@ -27,6 +27,7 @@ Sistem Antrian Niscaya adalah aplikasi manajemen antrian digital yang dirancang 
 | 🔊 **Panggilan Suara** | Announcement otomatis dengan suara Google TTS / ResponsiveVoice (Indonesian Female) |
 | 📺 **Monitor Display** | Tampilan TV dengan nomor antrian, video YouTube, running text, dan jam real-time |
 | 🎨 **Kustomisasi Branding** | Ubah logo, warna tema, hero image, dan teks running |
+| 🎭 **Tema Adaptif** | Seluruh halaman (termasuk Pengaturan) mengikuti tema warna terpilih dengan penyesuaian gelap/terang otomatis |
 | 🔄 **Real-time** | Update nomor antrian secara real-time via polling |
 | 🐳 **Docker Support** | Deploy sekali dengan Docker Compose, siap digunakan |
 | 🔐 **HTTPS Ready** | Dukungan SSL self-signed untuk koneksi aman |
@@ -132,6 +133,8 @@ Setelah login, buka menu **Pengaturan** (bottom nav) untuk mengonfigurasi:
 - **Warna Tema** — Header, tombol, background, teks
 - **Loket** — Tambah/hapus loket pelayanan
 - **Printer** — Metode cetak tiket (browser / Windows / Fully Kiosk)
+
+> **Tema Adaptif:** Halaman Pengaturan otomatis mengikuti tema warna yang dipilih (Header, tombol/aksen, dan background dari tema). Panel ini menyesuaikan antara tampilan terang dan gelap secara otomatis berdasarkan warna background tema, sehingga konsisten dengan halaman Home, Kiosk, Operator, dan Monitor untuk semua preset tema.
 
 ## Lisensi
 
