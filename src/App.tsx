@@ -117,10 +117,17 @@ export default function App() {
 
   // Floating Navigation Bar (Easy view-switching for AI Studio Preview)
   const navDock = (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-md border border-slate-800 px-6 py-3.5 rounded-full shadow-2xl flex items-center gap-6 z-50 transition-all hover:scale-[1.02]">
+    <div 
+      className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-md border rounded-full shadow-2xl flex items-center gap-5 z-50 transition-all hover:scale-[1.02] px-5 py-2"
+      style={{ 
+        backgroundColor: settings ? `${settings.warna_primary}dd` : '#1e293bdd',
+        borderColor: settings ? `${settings.warna_accent}66` : '#33415566'
+      }}
+    >
       <button 
         onClick={() => navigateTo('home')} 
-        className={`flex flex-col items-center gap-1 text-xs font-medium transition-all ${view === 'home' ? 'text-blue-400 scale-110' : 'text-slate-400 hover:text-slate-200'}`}
+        className={`flex flex-col items-center gap-1.5 text-xs font-medium transition-all ${view === 'home' ? 'text-emerald-400 scale-110' : 'text-slate-400 hover:text-slate-200'}`}
+        style={{ color: view === 'home' ? (settings?.warna_accent || '#6083a9') : undefined }}
         title="Beranda"
       >
         <Home className="w-5 h-5" />
@@ -129,7 +136,8 @@ export default function App() {
       <div className="w-[1px] h-6 bg-slate-800" />
       <button 
         onClick={() => navigateTo('kiosk')} 
-        className={`flex flex-col items-center gap-1 text-xs font-medium transition-all ${view === 'kiosk' ? 'text-emerald-400 scale-110' : 'text-slate-400 hover:text-slate-200'}`}
+        className={`flex flex-col items-center gap-1.5 text-xs font-medium transition-all ${view === 'kiosk' ? 'text-emerald-400 scale-110' : 'text-slate-400 hover:text-slate-200'}`}
+        style={{ color: view === 'kiosk' ? (settings?.warna_accent || '#6083a9') : undefined }}
         title="Kios Cetak Antrian"
       >
         <Printer className="w-5 h-5" />
@@ -137,7 +145,8 @@ export default function App() {
       </button>
       <button 
         onClick={() => navigateTo('counter')} 
-        className={`flex flex-col items-center gap-1 text-xs font-medium transition-all ${view === 'counter' ? 'text-amber-400 scale-110' : 'text-slate-400 hover:text-slate-200'}`}
+        className={`flex flex-col items-center gap-1.5 text-xs font-medium transition-all ${view === 'counter' ? 'text-amber-400 scale-110' : 'text-slate-400 hover:text-slate-200'}`}
+        style={{ color: view === 'counter' ? (settings?.warna_accent || '#6083a9') : undefined }}
         title="Panggilan Loket"
       >
         <UserCheck className="w-5 h-5" />
@@ -145,7 +154,8 @@ export default function App() {
       </button>
       <button 
         onClick={() => navigateTo('monitor')} 
-        className={`flex flex-col items-center gap-1 text-xs font-medium transition-all ${view === 'monitor' ? 'text-indigo-400 scale-110' : 'text-slate-400 hover:text-slate-200'}`}
+        className={`flex flex-col items-center gap-1.5 text-xs font-medium transition-all ${view === 'monitor' ? 'text-indigo-400 scale-110' : 'text-slate-400 hover:text-slate-200'}`}
+        style={{ color: view === 'monitor' ? (settings?.warna_accent || '#6083a9') : undefined }}
         title="Monitor Display"
       >
         <Tv className="w-5 h-5" />
@@ -153,7 +163,8 @@ export default function App() {
       </button>
       <button 
         onClick={() => navigateTo('settings')} 
-        className={`flex flex-col items-center gap-1 text-xs font-medium transition-all ${view === 'settings' ? 'text-pink-400 scale-110' : 'text-slate-400 hover:text-slate-200'}`}
+        className={`flex flex-col items-center gap-1.5 text-xs font-medium transition-all ${view === 'settings' ? 'text-pink-400 scale-110' : 'text-slate-400 hover:text-slate-200'}`}
+        style={{ color: view === 'settings' ? (settings?.warna_accent || '#6083a9') : undefined }}
         title="Pengaturan"
       >
         <Settings className="w-5 h-5" />
